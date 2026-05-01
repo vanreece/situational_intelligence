@@ -2,15 +2,18 @@
 
 Append-only log of experiments. The newest entries are at the top. The code is secondary; this log is the durable artifact.
 
-Each entry should capture:
-- **Date** of the experiment
-- **Question** it was trying to answer (which unknown from goals.md)
-- **Setup** — datasets, detectors, models used
-- **Observations** — what was seen, including surprises
-- **Conclusions** — what we now believe more or less strongly
-- **Next** — what this suggests trying next
+## Pre-registration discipline
 
-Be honest about what didn't work. Negative results compound as much as positive ones — they prevent re-running failed experiments and they shape what to try next.
+Every entry has two halves: a **Pre-registration** block written and committed *before* the experiment runs, and a **Results** block written and committed *after*. This is a two-commit convention by design — the git timestamp on the pre-reg commit is the receipt that we didn't move the goalposts.
+
+The pre-reg block forces us to declare:
+- what we expect to see and why,
+- what each plausible outcome would mean for our beliefs,
+- what observations would actually change our minds.
+
+The results block then has to confront the pre-reg honestly. Surprises (results that contradict the prediction) are first-class outputs and must be called out explicitly — they're where the most learning compounds.
+
+Negative results compound as much as positive ones. Skipping the pre-reg block is a tell that we're rationalizing — if you find yourself wanting to skip it, that's the experiment most worth pre-registering.
 
 ---
 
@@ -21,19 +24,34 @@ Be honest about what didn't work. Negative results compound as much as positive 
 
 **Question:** Which unknown is this addressing? (e.g., U1: cross-domain generalization)
 
+### Pre-registration *(commit this block before running)*
+
 **Setup:**
 - Dataset(s):
 - Detector(s):
 - Model(s):
 - Approach:
 
+**Prediction:** What we expect to observe and why. Specific enough that a different observation would feel different.
+
+**Decision rule:** What each plausible outcome would mean.
+- If result looks like X → conclusion A (e.g., promote detector to Validated)
+- If result looks like Y → conclusion B (e.g., revise approach)
+- If result looks like Z → inconclusive, try Z'
+
+**Falsifiers / mind-changers:** Concrete observations that would disconfirm the prediction or shift an architectural commitment. If none come to mind, the experiment may not be sharp enough.
+
+### Results *(commit this block after running)*
+
 **Observations:**
-- What was seen
-- Surprises
+- What was actually seen
 - Anything unexpected in the data or outputs
 
+**Surprises:** Anything that contradicted the Prediction. Be explicit — these are where the learning is.
+
 **Conclusions:**
-- What we now believe
+- Which decision-rule branch fired
+- What we now believe and how strongly
 - What changed about our model of the problem
 
 **Next:**

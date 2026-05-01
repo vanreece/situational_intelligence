@@ -45,6 +45,8 @@ docs/                    Design documents, read these first
   datasets.md            Public datasets and what each is good for
   detector-catalog.md    Running list of detector ideas with status
   experiment-log.md      Append-only log of what was tried and what was learned
+  direction-log.md       The user's voice: strategic guidance, decisions, redirections
+  infrastructure.md      Compute resources (homelab models, API access)
 
 src/                     Code (to be created)
   harvest/               Per-source data ingestion
@@ -70,15 +72,18 @@ results/                 Outputs from experiments
 - **Per-component evals over end-to-end evals.** When something breaks, the failure should localize to a specific detector or synthesis step, not to "the system."
 - **Hold-out splits along time boundaries.** For datasets with temporal structure, train/develop on earlier periods and validate on later periods. Random splits are misleading for this kind of work because the production regime is "predict what's forming, not what already happened."
 - **Append to experiment-log.md after every meaningful run.** What was tried, what was observed, what surprised, what to try next. This is the durable artifact; the code is secondary.
+- **Pre-register experiments before running them.** Each `experiment-log.md` entry is committed in two stages: the **Pre-registration** block (Setup, Prediction, Decision rule, Falsifiers) commits *before* the experiment runs; **Results** commit afterward. The git timestamp on the pre-reg commit is the receipt that we didn't move the goalposts. Wanting to skip the pre-reg block is the strongest signal that we're rationalizing — that's the experiment most worth pre-registering.
+- **The direction log is the user's voice.** `docs/direction-log.md` captures strategic guidance, decisions, and redirections from the user. Read it for context, never edit/summarize/condense/move its contents, and don't fold it into other docs. When you want to surface analysis, use conversation or `experiment-log.md`.
 - **Don't merge classification and extraction into one pass** even when the latest model could do both. The architectural separation is the moat.
 - **No cargo-cult dependency graphs.** Beads is great for coding-agent workflows where the plan is durable. Exploration work is OODA-shaped: the plan is mutable, the observations are durable. Use logs, not graphs, until a graph earns its place.
 
 ## Reading order for new sessions
 
 1. This file (CLAUDE.md)
-2. `docs/goals.md` — what we're trying to learn right now
-3. `docs/experiment-log.md` — what was tried recently
-4. Whatever specific doc is relevant to the current task
+2. `docs/direction-log.md` — recent strategic guidance from the user (read; do not edit)
+3. `docs/goals.md` — what we're trying to learn right now
+4. `docs/experiment-log.md` — what was tried recently
+5. Whatever specific doc is relevant to the current task
 
 ## Known unknowns
 

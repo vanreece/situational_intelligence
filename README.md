@@ -14,7 +14,9 @@ Early exploration. Not a product. Possibly a product someday.
 - `docs/antigoals.md` — What this project is *not*. Read this when scope creep tempts.
 - `docs/datasets.md` — Public datasets we're using and why.
 - `docs/detector-catalog.md` — Running list of detector ideas with status.
-- `docs/experiment-log.md` — What was tried, what was learned.
+- `docs/experiment-log.md` — What was tried, what was learned. Two-commit pre-registration discipline.
+- `docs/direction-log.md` — The user's voice: strategic guidance, decisions, redirections over time.
+- `docs/infrastructure.md` — Compute resources (homelab models, API access).
 
 ## How to read this repo
 
