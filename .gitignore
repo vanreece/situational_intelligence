@@ -1,0 +1,35 @@
+# Datasets - never committed
+data/raw/
+data/processed/
+data/.cache/
+
+# Experiment outputs
+results/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+
+# Node
+node_modules/
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.key
+credentials.json
+
+# Logs
+*.log
+logs/
