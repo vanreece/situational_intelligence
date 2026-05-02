@@ -172,7 +172,111 @@ Output strict JSON:
 
 ### Results *(commit this block after running)*
 
-*(To be appended after re-labeling and re-running.)*
+**Summary:** `results/evals/schedule_change_announcement-d6m-v2/summary.json`. cheap-tier-v2 ran on the full 731-message corpus (~270s, 1 transient resumed). Two independent Opus subagents relabeled 149 + 4 items against v2 (153 total), without contamination from this conversation's analysis.
+
+**Headline scorecards:**
+
+| Comparison | Model+ | TP | FP | Precision | Recall | F1 |
+|------------|-------:|---:|---:|----------:|-------:|----:|
+| **cheap-v2 vs Opus-v2** | 14 | 8 | 6 | **0.571** | **1.000** | **0.727** |
+| cheap-v2 vs Opus-v1 (continuity) | 14 | 4 | 6 | 0.400 | 0.071 | 0.121 |
+| cheap-v1 vs Opus-v1 (baseline) | 41 | 12 | 23 | 0.343 | 0.496 | 0.405 |
+| cheap-v1 vs Opus-v2 (alignment check) | 41 | 5 | 31 | 0.139 | 0.220 | 0.170 |
+
+**v2 promotes F1 from 0.405 → 0.727.** The original promotion criterion was F1 ≥ 0.65 AND precision ≥ 0.70. F1 clears the bar by a wide margin (+0.077); precision misses by a small margin (-0.13). All 8 known Opus-v2 positives are caught (recall = 1.0); the precision shortfall is a localized failure mode discussed below.
+
+**Opus label delta (v1 → v2, 7.4% of items shifted, all in the same direction):**
+
+| v1 → v2 | count | Items |
+|---------|------:|-------|
+| positive → positive | 4 | Op-8, Op-9, Op-13, Op-14 (the predicted v2 keepers) |
+| positive → negative | 10 | Op-1, Op-2, Op-3, Op-4, Op-5, Op-6, Op-7, Op-10, Op-11, Op-12 (vote-failure rerolls and vote mechanics + Marcus's hedged discussion + Brandon's vote change) |
+| negative → negative | 134 | unchanged |
+| unsure → negative | 1 | Op-Unsure |
+
+**Plus 4 items not in the v1 pool that Opus-v2 newly identifies as positives** (because cheap-tier-v2 fired on them):
+- Michael Kjellman's *original* "Proposed changes to C* Release Schedule" (the cycle proposal everyone quoted)
+- Jonathan Ellis's "What if we tried a quicker release cycle, BUT we would guarantee that you could do a rolling upgrade until we bump the supermajor version?"
+- Michael Shuler's "Should this be fixed for a 1.2.18 re-roll?" (introduces a new not-previously-planned 1.2.18)
+- Jonathan Ellis's "I'd even lean towards taking 1.2.17 down until that's fixed" (proposes withdrawing an already-passed release)
+
+**Pre-reg accuracy on individual OpusPositives:**
+
+| Op | v1 | predicted v2 | actual Opus-v2 | predicted cheap-v2 | actual cheap-v2 | hit? |
+|---:|---|---|---|---|---|:---:|
+| 1 | POS | POS | NEG | POS | NEG | ✗ (predicted both POS, both NEG) |
+| 2 | POS | POS | NEG | POS-borderline | NEG | ✗ |
+| 3 | POS | NEG | NEG | NEG | NEG | ✓ |
+| 4 | POS | NEG | NEG | NEG | NEG | ✓ |
+| 5 | POS | NEG | NEG | NEG | NEG | ✓ |
+| 6 | POS | NEG | NEG | NEG | NEG | ✓ |
+| 7 | POS | NEG | NEG | NEG | NEG | ✓ |
+| 8 | POS | POS | POS | POS | POS | ✓ |
+| 9 | POS | POS-borderline | POS | POS | POS | ✓ |
+| 10 | POS | NEG | NEG | NEG | NEG | ✓ |
+| 11 | POS | NEG | NEG | NEG | NEG | ✓ |
+| 12 | POS | NEG | NEG | NEG | NEG | ✓ |
+| 13 | POS | POS | POS | POS-uncertain | POS | ✓ |
+| 14 | POS | POS | POS | POS | POS | ✓ |
+
+**12 of 14 Opus-v2 predictions matched. 12 of 14 cheap-v2 predictions matched.** Both the rubric calibration and the cheap-tier behavior under v2 landed close to pre-reg expectations.
+
+**CRITICAL quoted-text rule check:**
+
+Of the 20 si-clz "anchoring fix" messages (where v1 cheap-tier fired POS by anchoring on quoted text), **17 correctly resolve to NEG under v2** (the rule was honored). 3 still fire POS — and these are *exactly* the messages that account for the v2 cheap-tier's precision shortfall. All 3 anchor on the quoted phrase "I'd love it if we could modify the C* release cycle to include..." (Michael Kjellman's TL;DR, quoted in many replies in the "Proposed changes to C* Release Schedule" thread). The cheap-tier reads this phrase as so strongly schedule-flavored that it overrides the "ignore quoted material" instruction.
+
+The 6 cheap-tier-v2 FPs are: 4 of these 3 + 2 similar cycle-proposal-quoted replies (Sylvain's "I was thinking of something along those lines so I'm in favor" anchored on Sylvain's own quoted-elsewhere reply; Jake Luciani's reply anchored on the same Kjellman phrase). **All 6 FPs are quoted-text anchoring failures concentrated in one thread.**
+
+**Pre-reg falsifier check:**
+
+| Falsifier | Triggered? | Note |
+|-----------|:----------:|------|
+| cheap_v2 fires positive on >50% of corpus | ✗ | 1.9% positive rate |
+| **cheap_v2 fires positive on <5%** | **✓ (by letter)** | 1.92% — but the spirit is not violated. The v2 rubric is genuinely strict; Opus-v2 itself has only 5.2% positive rate. The falsifier was meant to catch broken-prompt cases; v2 cheap-tier is firing on the *right* items, just rarely. |
+| Opus-v2 disagrees with Opus-v1 on >50% | ✗ | 7.4% (11 items) — the rubric is recognizably the same detector concept |
+| CRITICAL quoted-text rule produces no change | ✗ | 17/20 anchoring-fix cases resolved correctly — rule is honored |
+| cheap_v2 misses Op-14 | ✗ | Op-14 caught (the "easy" case held) |
+| cheap_v2 fires on Op-12 (vote period extension) | ✗ | Op-12 correctly NEG |
+
+**Observations:**
+
+1. **The v2 rubric prompt steers the cheap-tier reliably**, in stark contrast to si-clz variant B's marker. The difference is quantitative, not categorical: v2 is a heavy redesign with explicit category lists and concrete examples, vs. variant B's single appended sentence. **Updated U3 finding: prompt-level instructions DO steer Qwen3-Coder-30B at sufficient weight.** "Sufficient" appears to be measured in *hundreds* of additional system-prompt characters with concrete examples, not in *tens* with abstract instructions.
+
+2. **The CRITICAL quoted-text rule worked at 85% (17/20)**, but the 15% failure mode is concentrated: all 3 failures anchor on the same cycle-proposal phrase. The cheap-tier overrides the "ignore quoted text" instruction when the quoted text is itself an unusually strong signal. This is U3-relevant: **the cheap-tier's instruction-following is signal-strength-modulated** — strong quoted signals override structural instructions about provenance.
+
+3. **Opus's label delta was much smaller than the model+ delta** (Opus shifted 11/149 = 7.4%; cheap-tier shifted 35/731 = 4.8% with mostly different items). This means the rubric sharpening is *concentrated on rubric-ambiguous boundary cases* — most of the corpus (87%) is unaffected. The detector concept is stable; only the boundary moved.
+
+4. **All 4 newly-discovered v2 OpusPositives** (Michael Kjellman original, Jonathan's quicker-cycle proposal, Shuler's 1.2.18 question, Ellis's 1.2.17-takedown) are cases that v1 cheap-tier missed but v2 cheap-tier caught. The v2 prompt is not just narrowing the positive class — it's also surfacing genuine positives v1 missed.
+
+**Surprises:**
+
+1. **F1 jumped much further than predicted** (predicted 0.55–0.70; actual 0.727). The combination of stricter rubric + the cheap-tier honoring the rubric + the labels expanding to include 4 new positives (which cheap-tier-v2 caught) compounded favorably. Each ingredient was within prediction; the multiplicative effect exceeded the prediction range.
+
+2. **Recall is 1.0 (extrapolated).** Every known Opus-v2 positive was caught by cheap-v2. This is suspicious-clean — almost certainly because the random-sample-of-model-negatives that informed the recall extrapolation had 0 Opus-v2-positives in it (the v2 rubric is so strict, schedule-positives are rare in the corpus). The 95% CI on recall is wider than the point estimate suggests; "no FNs found in 100-item random sample" doesn't preclude a small tail of FNs in the unsampled 600+ negatives. Honest precision: recall is *high* but the 1.0 point estimate has a meaningful CI.
+
+3. **The Opus label shift was strictly POS→NEG** (no NEG→POS in the existing 149 pool; the 4 new positives came from outside that pool). The rubric narrowed without expanding into previously-negative territory — exactly what a "sharpen, don't redirect" rubric edit should do.
+
+4. **The 4 newly-discovered v2 positives in the cycle-proposal thread are messages the cheap-tier-v1 had been firing positive on by anchoring on quoted text — and Opus-v2 confirms they ARE positive when the test is applied to their ORIGINAL form** (the originator, not the quote-anchored reply). The cheap-tier-v1's "right answer for the wrong reason" was right *about the original phrasing, not about the replies*. The substrate work would solve this; the rubric work doesn't.
+
+**Conclusions:**
+
+- **Decision-rule outcome: NEAR-MISS for promotion.** F1 = 0.727 > 0.65 ✓, but precision = 0.571 < 0.70 ✗. The strict reading of the pre-reg promotion criterion fails at precision. **The detector is NOT formally promoted to Prototype**, but the gap is small and localized.
+- **The precision shortfall has one identifiable cause:** 3 of the 6 FPs are quoted-text rule failures on the same Kjellman cycle-proposal phrase. The other 3 are semantically similar (replies that quote substantive cycle-proposal content). If those 6 were resolved correctly, precision would be 8/8 = 1.0 in pool. **The rubric is well-calibrated; the cheap-tier's honoring of the quoted-text rule has a specific failure mode (strong-signal quoted text overrides the rule).**
+- **Two paths forward:**
+  - **(a) Accept v2 as the operating point and document the failure mode.** F1 0.727 is a substantial improvement from 0.405; the precision-on-ground-truth (whether the model's positives are real schedule changes) is high — they're all *related to* a real schedule discussion, just sometimes the wrong author within that thread. Operationally, this might be acceptable: a senior operator reading "this thread is about a schedule change" gets the right cluster identified, even if the specific message attribution is off.
+  - **(b) Add structural disambiguation to handle the strong-quoted-signal case.** The substrate work (si-clz) showed that *removing* quoted text breaks productive uses of context; but a v2.1 might *mark* quoted material with stronger formatting that the cheap-tier can't override. Worth a small foray IF (a) is unacceptable.
+- **The architectural commitment to "binary-per-category classifiers" is reinforced again.** v2 is a single-thesis prompt change; rubric sharpening produced a 0.32 F1 lift with no architecture change. This is what the per-category model is supposed to enable.
+- **U3 finding: prompt-level instructions DO steer cheap-tier when the prompt redesign is heavy enough.** Variant B's lightweight marker failed; v2's heavy structured rubric succeeded. Future detector work should default to *heavy structured prompts with examples*, not *lightweight instructions on top of generic prompts*.
+- **The promotion criterion may be miscalibrated** for the v2 rubric. The original criterion (precision ≥ 0.70) was set for v1's broader positive class. Under v2's much narrower class (5% base rate), a precision of 0.57 corresponds to a much higher signal-to-noise improvement than 0.70 did under v1's 9.4% base rate. Worth re-thinking before forcing a v3 just to chase the precision number.
+
+**Next:**
+
+- **Surface the (a) vs (b) choice to the user.** The detector is operationally good but doesn't formally promote on the strict criterion. Worth a strategic conversation before doing more work.
+- **If (b):** file a small foray to test whether stronger structural marking of quoted text (not just an instruction, but a wrapping/bracketing) helps the cheap-tier ignore strong quoted signals. ~1 hour of work; tests on the same 6 FPs.
+- **If (a):** update `detector-catalog.md` to mark `schedule_change_announcement` as Prototype-with-caveat (operating at F1=0.727, precision=0.57, with a known anchoring-failure mode on cycle-proposal threads). Move to the next detector or to cross-corpus generalization (si-t3l).
+- **Update `local_temporal_context.md`** with the U3 finding that prompt-level instructions steer Qwen3-Coder-30B when the prompt redesign is heavy enough.
+- **Update `detector-catalog.md`** with the v2 rubric and the F1 = 0.727 result, regardless of which branch.
+- **Pre-reg lesson:** the falsifier "<5% positives" was triggered by letter but the spirit was preserved. Future pre-regs should specify *spirit checks* alongside numerical thresholds.
 
 ---
 

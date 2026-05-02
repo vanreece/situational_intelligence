@@ -60,6 +60,41 @@ Output strict JSON:
   "rationale": "<one-sentence explanation>"
 }"""
 
+# v2 rubric (si-d6m, frozen in pre-reg commit 3313c2a). Sharpens the boundary cases:
+# - vote-failure rerolls of an already-planned release: NEGATIVE (procedural)
+# - vote-period adjustments: NEGATIVE (mechanic, not date)
+# - +1/-1 votes by themselves: NEGATIVE (procedural reply)
+# - CRITICAL quoted-text rule: if evidence is in quoted lines, answer NEGATIVE
+SYSTEM_PROMPT_V2 = """You are reviewing a single message from the Apache Cassandra developer mailing list (dev@cassandra.apache.org). Determine whether the message announces, proposes, or implies a change to a previously-stated date or version target for a release, milestone, or planned work.
+
+The change must affect a substantive deliverable (a release date, a feature target version, a release cadence). Procedural mechanics around an in-flight release process — vote retries, vote-period adjustments, +1/-1 votes — are NOT schedule changes; they are the standard release process executing normally.
+
+POSITIVE — the author IS announcing/proposing/implying a substantive schedule change:
+- Explicit date changes ("I propose postponing release of 1.2.17 until next week")
+- Version target shifts ("we're planning to move to file-based hint storage in 3.0", "it's too late for a schema change in 2.1")
+- Release cadence proposals ("I'd love it if we could modify the C* release cycle to 4 months")
+- Acknowledgments that a previously-stated timeline will not be met ("we still have a lot to do before X")
+- Setting a new target date when a previous expectation existed
+- Re-rolls that introduce a NEW version not previously planned (e.g., "let's do a 1.2.18" when 1.2.17 was the last announced)
+
+NEGATIVE — these are NOT schedule changes:
+- Vote-failure rerolls of an already-planned release ("vote closed; we'll re-roll once X is fixed") — the release was always planned to happen when the vote passed; one failed vote attempt is procedural, not a schedule change. The release is still in-flight on the same broad schedule.
+- Vote-period adjustments ("I'll shorten the vote period to 48h", "extending the vote 24 more hours") — mechanic, not date.
+- +1 / -1 votes by themselves, even when the parent vote announcement is in the thread — the vote reply is procedural.
+- Discussion of current schedules without proposing changes ("X is on track")
+- Initial schedule announcements when no prior expectation existed
+- Pure technical discussion with no schedule reference
+
+CRITICAL — quoted text rule:
+If your evidence for a positive judgment would be a phrase that appears in the QUOTED part of the message (lines starting with > or otherwise marked as from an earlier message in the thread), the answer is NEGATIVE. Judge based on what THIS author wrote in THIS message, not what they are quoting from someone else. The author is referencing the quoted material, not asserting it.
+
+Output strict JSON:
+{
+  "is_schedule_change_announcement": true | false,
+  "evidence_quote": "<verbatim span from THIS author's new content (NOT quoted lines), or null if false>",
+  "rationale": "<one-sentence explanation, including whether the evidence is in new content or quoted material if relevant>"
+}"""
+
 USER_TEMPLATE = """Message:
 From: {from_raw}
 Subject: {subject}
@@ -99,12 +134,14 @@ GUIDED_JSON_SCHEMA = {
 }
 
 
-PROMPT_VARIANTS = ("current_baseline", "new_only", "new_with_marked_quoted")
+PROMPT_VARIANTS = ("current_baseline", "new_only", "new_with_marked_quoted", "v2_strict")
 
 
 def _system_prompt_for(variant: str) -> str:
     if variant == "new_with_marked_quoted":
         return SYSTEM_PROMPT + SYSTEM_PROMPT_MARKED_SUFFIX
+    if variant == "v2_strict":
+        return SYSTEM_PROMPT_V2
     return SYSTEM_PROMPT
 
 
@@ -153,7 +190,11 @@ def build_request(message: dict, quote_depth: int | None = None,
     date = message.get("date", "") or ""
     body = message.get("body_text", "") or ""
 
-    if prompt_variant == "current_baseline":
+    if prompt_variant in ("current_baseline", "v2_strict"):
+        # v2_strict uses the same body shape as current_baseline (depth-filtered);
+        # the difference is the system prompt and the CRITICAL quoted-text rule.
+        # The cheap-tier sees quoted material and is told via the rule to ignore it
+        # for evidence purposes — this tests whether the rule reliably steers behavior.
         if quote_depth is not None:
             body = extract_at_depth(body, quote_depth)
         user_msg = USER_TEMPLATE.format(
