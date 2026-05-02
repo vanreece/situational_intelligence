@@ -33,3 +33,8 @@ credentials.json
 # Logs
 *.log
 logs/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key

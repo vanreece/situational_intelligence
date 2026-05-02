@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "situational_intelligence",
+  "project_id": "8ccd930b-60ed-483b-8934-a981c3d3d919"
+}
