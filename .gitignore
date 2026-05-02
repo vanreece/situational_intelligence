@@ -37,6 +37,9 @@ logs/
 # Orchestrator runtime state (bead-execution failure signals; ephemeral)
 bead-failures/
 
+# vLLM workload dumps (regenerable from corpus + classifier; can be large)
+workloads/
+
 # Beads / Dolt files (added by bd init)
 .dolt/
 *.db
