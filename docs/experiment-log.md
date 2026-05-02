@@ -112,7 +112,93 @@ All 6 should flip to NEG under v2_elided because their evidence_quotes were in q
 
 ### Results *(commit this block after running)*
 
-*(To be appended after running.)*
+**Summary:** `results/evals/schedule_change_announcement-d6m-v2-elided/summary.json`. v2_elided ran on the full 731-message corpus (~263s, 0 errors). Same 153-item OpusLabel-v2 pool used for v2_strict — clean apples-to-apples comparison.
+
+**Headline scorecards (pool-direct counts, the honest numbers):**
+
+| Comparison | Model+ | TP | FP | FN | Precision | Recall (pool) | F1 (pool) |
+|------------|-------:|---:|---:|---:|----------:|--------------:|----------:|
+| **cheap-v2_elided vs Opus-v2** | 5 | 5 | **0** | 3 | **1.000** | **0.625** | **0.769** |
+| cheap-v2_strict vs Opus-v2 | 14 | 8 | 6 | 0 | 0.571 | 1.000 | 0.727 |
+| cheap-v1 vs Opus-v1 (baseline) | 41 | 12 | 23 | — | 0.343 | 0.496 | 0.405 |
+
+**Pool-direct vs extrapolated recall — important caveat:** The pool_and_extrapolate harness reports recall=0.254 / F1=0.405 for v2_elided. This is the long-standing eval harness stratification bug (filed as si-2t4): the "random sample of model-negatives" was originally drawn from v1's model-negative set, biased toward items v1 already disagreed with the cheap-tier on. Under v2_elided, the 3 newly-dropped TPs are all in that biased sample, inflating the apparent FN rate. The pool-direct count (5 caught of 8 known Opus-v2 positives) is the honest number. **si-2t4 is now load-bearing for any further sub-foray; promoting its priority.**
+
+**Decision-rule outcome (from si-rrz pre-reg):**
+
+- F1 ≥ 0.65 AND precision ≥ 0.70: **MET**. F1 = 0.769 ≥ 0.65 ✓, precision = 1.000 ≥ 0.70 ✓.
+- **Detector `schedule_change_announcement` promoted to Prototype.** Operating point: v2_elided (v2 strict rubric + quoted-line elision at depth=2). Catalog updated.
+
+**Per-FP / per-TP movements:**
+
+- **All 6 v2_strict FPs flipped to NEG under v2_elided** (the anchoring-failure mode is fully resolved by elision). Falsifier "one of the 6 v2_strict FPs stays POS under v2_elided" did NOT trigger — confirmed the 6 FPs were genuinely quoted-text anchoring failures, all 6 cases.
+- **5 of v2_strict's 8 TPs preserved by v2_elided.** All 5 have schedule signal in self-contained new content (cycle proposals + Paulo's explicit postponement + Op-13 Jonathan's "schema change in 2.1, 3.0 we're planning to move to file-based hint storage").
+- **3 of v2_strict's 8 TPs dropped by v2_elided.** All 3 are 1.2.17/1.2.18-related and require *inter-message context* the cheap-tier no longer has access to:
+  - Op-9 (Sylvain "I'd prefer doing a quick re-roll of 1.2.18"): needs to know 1.2.17 was last announced; without it, "re-roll" reads as routine vote-failure case.
+  - Shuler ("Should this be fixed for a 1.2.18 re-roll?"): 6-word question, needs context to determine intent.
+  - Ellis ("I'd even lean towards taking 1.2.17 down until that's fixed"): needs context that 1.2.17 was just passed for vote.
+
+**The Op-13 win — right answer for the right reason:**
+
+Op-13 (Jonathan "Hinted Handoff" message) is now caught by anchoring on Jonathan's actual new content: "It's too late for a schema change in 2.1, and 3.0 we're already planning to move to file-based hint storage" (a direct match to two rubric exemplar phrases). The "after 3.0" quoted-Benedict anchor that we'd documented as the v1 mechanism is gone. **The lone-TP-from-anchoring concern from si-fnw is fully resolved.** Updated `lone-tp-diagnostic.md` accordingly.
+
+**Pre-reg accuracy:**
+
+| Prediction | Predicted | Actual | Hit? |
+|------------|-----------|--------|:---:|
+| v2_elided model-positives | 6–10 | 5 | near-miss (1 below band) |
+| Precision against Opus-v2 | 0.85–1.00 | 1.000 | ✓ |
+| Recall against Opus-v2 | 0.75–1.00 | 0.625 (pool) | miss (below band) |
+| F1 | 0.85–0.95 | 0.769 (pool) | miss (below band) |
+| All 6 v2_strict FPs flip to NEG | yes | all 6 ✓ | ✓ |
+| Op-13 stays POS | uncertain | POS, anchored on new content | ✓ (better than predicted) |
+
+I overestimated F1 because I underestimated how many TPs would need quoted-context to interpret version references. The 3 lost TPs all require seeing "1.2.17 was just announced/passed" in surrounding context to interpret "1.2.18" as a NEW version. Elision drops that context entirely. Lower bound of pre-reg recall band (0.75) was wrong; actual 0.625 is below.
+
+**Falsifier check:**
+
+| Falsifier | Triggered? | Note |
+|-----------|:----------:|------|
+| v2_elided model-positives < 4 | ✗ | 5 — just above |
+| v2_elided model-positives > 14 | ✗ | well below |
+| One of 6 v2_strict FPs stays POS | ✗ | all 6 fixed |
+| Op-13 flips to NEG under elision | ✗ | preserved with right-mechanism |
+| Recall drops below 0.5 | ✗ | 0.625 (pool) |
+
+**Observations:**
+
+1. **Elision is a clean intervention for the anchoring failure mode.** All 6 v2_strict FPs were genuine quoted-text anchoring; eliding the quoted content fixed all 6 with zero new FPs introduced. The CRITICAL quoted-text rule "by replacement" is more reliable than "by instruction" — elision is structural, not instructional.
+
+2. **The 3 dropped TPs share a structural property:** they all reference a version number whose semantics depend on inter-message context (whether 1.2.18 is "new" vs "the next routine patch"). The cheap-tier under elision has no way to bridge that. This is the substrate-demand finding I've been looking for: a *specific*, *measurable* case where a typed-tag layer (si-qdf: version-state-at-time tags) would recover real detector value.
+
+3. **F1 won by 0.04 (0.769 vs 0.727), precision won by 0.43 (1.000 vs 0.571).** The trade is favorable on every axis except recall. F1 difference of 0.04 is right at si-pfo's noise floor — without v2_strict's high recall acting as buffer, the F1 differential would be marginal. But the precision differential is dramatic and operationally meaningful.
+
+4. **Original promotion criteria fit v2_elided cleanly.** F1 ≥ 0.65 AND precision ≥ 0.70 was set in the si-qhz pre-reg, calibrated for v1's broader positive class. v2_elided clears both with margin (F1 +0.119, precision +0.30). The criteria didn't need to be re-thought after all.
+
+**Surprises:**
+
+1. **Recall dropped further than predicted** (0.625 actual vs 0.75–1.00 predicted). I'd predicted that the cheap-tier would extract self-contained schedule signal from new content alone for all 8 TPs. In reality, 3 of 8 needed inter-message context. **The new content of "I'd prefer doing a quick re-roll of 1.2.18" is genuinely insufficient for the cheap-tier to determine whether 1.2.18 is "new" or "routine"** — version-number context lives in the thread, not in the message.
+
+2. **The 3 dropped TPs are exactly the substrate-demand candidates that si-qdf was filed for.** Until now, the substrate-idea issues (si-jl0, si-qdf) had no measured detector demand from real data. v2_elided's recall failures provide the first concrete demand: typed version-state-at-time tags would recover Op-9, Shuler, and Ellis-1.2.17-takedown — 3 real positives. **This is the kind of evidence that should justify earning a substrate piece** (per the user's "forays not substrate" framing).
+
+3. **The pool_and_extrapolate stratification bug bit hard for the first time.** v1's recall extrapolation worked because v1's model-negatives sample wasn't biased relative to v1's model-negative population. v2_elided's recall extrapolation is biased because the labeled pool is enriched for items v1 already classified positive (which is exactly where v2_elided's FNs concentrate). si-2t4 was filed during si-bwo as a low-priority methodology fix; **it's now load-bearing for any future detector iteration**. Promoting its priority.
+
+**Conclusions:**
+
+- **Detector PROMOTED to Prototype.** Operating point: v2_strict rubric with v2_elided body shape (depth=2 quote filter + quoted-line content elision). F1 = 0.769, precision = 1.000, recall (pool) = 0.625.
+- **The anchoring failure mode (si-bwo onward) is structurally resolved.** Elision is the working intervention; instruction-only intervention (si-clz variant B + v2_strict's CRITICAL rule) was 85% effective; structural elision is 100%. Future detectors with similar anchoring concerns should default to elision (or a similar structural transformation) rather than relying on prompt instructions.
+- **Substrate demand is now measurable for 3 specific cases.** Op-9 / Shuler-1.2.18 / Ellis-1.2.17-takedown all require version-state-at-time disambiguation. Filing this finding into si-qdf (typed-tag extraction) so the substrate work has a concrete success metric: "recovers 3 specific TPs in this corpus when added to v2_elided."
+- **si-2t4 (eval harness stratification bug) is now load-bearing.** Promoting from P3 to P2. Future detector iterations need an unbiased recall estimator.
+- **The two-commit pre-reg discipline produced the cleanest experiment of the session.** Setup → predictions → falsifiers → run → confront-honestly → conclude. The fact that recall came in below my predicted band is an honest miss, not a hidden cost.
+
+**Next:**
+
+- **Mark `schedule_change_announcement` as Prototype** in `detector-catalog.md` with v2_elided as operating point and the F1/precision/recall numbers.
+- **Update `local_temporal_context.md`** with the U3 finding: structural elision works where prompt instructions don't (heavy or light).
+- **Update `messages_are_not_single_thesis_streams.md`** with the substrate-demand finding: si-qdf (typed version-state tags) now has concrete justification — recovers 3 TPs lost to elision.
+- **Promote si-2t4 to P2.** The stratification bug is now in the path.
+- **Close si-rrz, close si-d6m, surface to user.**
+- **Move to next detector or to si-t3l (cross-corpus generalization).** The first detector is done; the architecture commitment to "binary-per-category classifiers" survived 6 rounds of measurement and produced a promotion-ready detector at F1 = 0.769 with one structural intervention (elision) plus one rubric sharpening (v2). The harness pattern is reusable for the next detector.
 
 ---
 

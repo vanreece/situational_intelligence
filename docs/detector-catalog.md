@@ -69,12 +69,32 @@ These detect categories of content in unstructured text. Binary-per-category, de
 
 ### schedule_change_announcement
 
-**Status:** Idea
-**Asks:** Does this message announce or imply a change to a scheduled date?
-**Why it matters:** Schedule changes are the primary input to propagation logic.
-**Evidence:** Message text.
-**Output:** Boolean + confidence + (if true) extracted previous and new dates.
-**Generalization:** Universal.
+**Status:** **Prototype** (promoted 2026-05-02 via si-rrz; see `experiment-log.md` 2026-05-02 entries)
+**Asks:** Does this message announce, propose, or imply a change to a previously-stated date or version target for a release, milestone, or planned work? Procedural mechanics (vote retries, vote-period adjustments, +1/-1 votes) explicitly excluded.
+**Why it matters:** Schedule changes are the primary input to propagation logic. The v2 rubric specifically targets *substantive* schedule changes — what would change a senior operator's planning picture — rather than every release-process event.
+**Evidence:** Message text at quote-depth=2, with quoted line content elided to `[QUOTED]` markers (preserves "this is a thread reply" structure without the cheap-tier anchoring on quoted phrases).
+**Output:** Boolean + p_positive (logprob-derived) + evidence_quote (constrained to author's new content) + rationale.
+**Generalization:** Validated on Apache Cassandra dev@ 2014; not yet tested cross-corpus (filed as si-t3l).
+
+**Operating point (Cassandra dev@ 2014):**
+- Cheap-tier model: Qwen3-Coder-30B-A3B-Instruct-gptq-4bit at temperature=0
+- v2 system prompt (1,704 chars; hash `ba10bafd2d271613` for v2_elided variant)
+- Body shape: depth=2 quote filter + `elide_quoted_lines` (each quoted-line content → `[QUOTED]`)
+- Pool-direct scorecard against 153-item OpusLabel-v2: F1 = 0.769, precision = 1.000, recall = 0.625
+- Wall-clock: ~263s per 731-message corpus on the homelab
+
+**Known failure modes:**
+- 3 specific TPs lost to elision because they require version-state-at-time disambiguation (cheap-tier can't tell "1.2.18" is a NEW version vs "the next routine patch" without quoted thread context). Recoverable with substrate work (si-qdf typed version-state tags).
+- Eval-harness recall extrapolation has a known stratification bug (si-2t4); use pool-direct counts for honest reporting until that's fixed.
+
+**Calibration data:**
+- Logprobs at temperature=0 are usable for ranking but not as raw confidence (Brier scores varied 0.07-0.20 across depth/variant sweeps).
+- Per-run noise floor at depth=2 is F1 ±0.015 (si-pfo, 6-run measurement).
+
+**Rubric & prompt provenance:**
+- v1 rubric frozen in si-qhz commit 7d64413 (F1 = 0.405, deprecated)
+- v2 rubric frozen in si-d6m commit 3313c2a (F1 = 0.727 with v2_strict body shape)
+- v2_elided body shape added in si-rrz commit 277d52f (F1 = 0.769; current operating point)
 
 ### risk_escalation_language
 
