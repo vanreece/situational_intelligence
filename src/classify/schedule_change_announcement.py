@@ -87,12 +87,19 @@ def prompt_hash() -> str:
     return h.hexdigest()[:16]
 
 
+MAX_BODY_CHARS = 60_000  # was 8000; bumped after si-qhz token-usage audit showed
+                         # max prompt was 3.4K tokens (11% of 32K window). Empirically,
+                         # email text tokenizes at ~2.5 chars/token (denser than 4 chars/token
+                         # due to quoted-message syntax), so 60K chars ≈ 24K tokens, leaving
+                         # ~8K headroom for system prompt + the 400-tok completion budget.
+                         # 100K chars hit the 32K context limit on a 92K-char message.
+
 def build_request(message: dict) -> dict:
     user_msg = USER_TEMPLATE.format(
         from_raw=message.get("from_raw", "") or "",
         subject=message.get("subject", "") or "",
         date=message.get("date", "") or "",
-        body_text=(message.get("body_text", "") or "")[:8000],
+        body_text=(message.get("body_text", "") or "")[:MAX_BODY_CHARS],
     )
     return {
         "model": MODEL_ID,

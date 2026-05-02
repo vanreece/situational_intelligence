@@ -213,6 +213,22 @@ The model is well-calibrated for confident negatives (it says "no" with p≈0 an
   - `idea`: Apply Platt scaling or isotonic regression to logprobs and re-measure Brier — quick test of whether post-hoc calibration recovers the upper-bin reliability
 - **The architectural commitment to "binary-per-category classifiers" survives this run.** The detector concept is fine; the rubric needs work. This is exactly the kind of failure mode where binary-per-category beats multi-class — we can fix one category's definition without retraining anything global.
 
+### Addendum 2026-05-02 (si-bwo): cap-bump audit revealed a deeper failure mode
+
+After the original run, audit of token usage showed max prompt was 3,433 tokens (11% of 32K window). 40/731 messages had body > 8000 chars and were truncated by the input cap. Bumped cap to 60,000 chars (the 32K context limit forced this — 100K char input + 400 reserved completion exceeded the model's hard 32,768-token limit on the longest message; ~2.5 chars/token observed for email text vs the 4 chars/token rule of thumb), re-ran on those 40, merged with the original predictions, re-scored.
+
+**Headline:** Roughly the same F1 (0.358 vs 0.389), small precision improvement (0.286 vs 0.277), slight calibration improvement (Brier 0.195 vs 0.215). But the more interesting finding is qualitative:
+
+- **5 of 7 POS→neg flips were FPs the truncated model got wrong** because it only saw the truncated parent (containing schedule-language quoted content) and lost the surrounding context that would have indicated this was a "+1"-style or substantive-but-not-proposal reply. With full body, the model correctly says NEG. (Precision wins.)
+- **1 of 7 POS→neg flips was a real TP loss** (Jonathan's "3.0 file-based hint storage" message) — the relaxed cap apparently dilutes the schedule signal enough that the model drops it.
+- **1 neg→POS flip was a NEW false positive** (graham@vast.com's hinted-handoff reply): the relaxed cap exposed previously-truncated quoted content from Benedict that contained "I plan to address this... after 3.0", and the model anchored on that quoted phrase as if it were the new reply.
+
+**The deep finding:** The model can't distinguish quoted-from-replied-to material from new content. Truncation just shifts WHICH quoted block the model anchors on. Truncating to first 8K → anchors on early-quoted material near the top. Truncating less → anchors on different quoted material as it becomes visible. The fundamental issue isn't input length; it's that the prompt doesn't help the model isolate "this is the new reply" from "this is quoted history."
+
+This dovetails with si-d6m (rubric sharpening): the v2 prompt should include a step that asks the model to identify the NEW content (lines not starting with `>`) before judging. Possibly a two-pass classifier — first pass strips quoted material, second pass classifies the cleaned content. Both options are within the architectural commitment of single-thesis passes if structured correctly.
+
+**Methodological note for future runs:** the eval harness's recall computation under merged predictions has a stratification bias when items move between pool and model-negative across runs. The 6 flipped items are a complete enumeration of POS→neg flips, not a random sample. A stratified estimate gives recall ~0.60, not 0.48. Filing this as a follow-up.
+
 ---
 
 ## 2026-05-01: First harvest — Apache Cassandra dev@ 2014
