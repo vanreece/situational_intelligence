@@ -148,7 +148,70 @@ Date: <date>
 
 ### Results *(commit this block after running)*
 
-*(To be filled in. Issue si-qhz tracks the run. When this block lands, si-qhz can close with a pointer to the commit.)*
+**Scorecard:** `results/evals/schedule_change_announcement-cassandra-2014.json` (gitignored; values inlined below for the durable record).
+
+| metric | value | 95% CI | predicted | within band? |
+|--------|-------|--------|-----------|--------------|
+| Precision | 0.277 | 0.169 – 0.418 | 0.65 – 0.80 | **NO** (well below) |
+| Recall (extrapolated) | 0.656 | 0.259 – 0.915 | 0.55 – 0.75 | yes |
+| F1 | 0.389 | — | 0.60 – 0.78 | **NO** (below) |
+| Brier | 0.215 | — | 0.10 – 0.20 | **NO** (slightly above) |
+| Model-positives in 731 corpus | 48 (6.6%) | — | ~2% (10-30 msgs) | **NO** (higher) |
+
+**Reliability bins (the headline calibration finding):**
+
+```
+predicted [0.0, 0.1):  100 items, mean p=0.001, actual frac_pos=0.01  ← well calibrated for negatives
+predicted [0.5, 0.6):    1 item,  mean p=0.59,  actual frac_pos=1.00
+predicted [0.6, 0.7):    2 items, mean p=0.67,  actual frac_pos=0.00  ← overconfident
+predicted [0.7, 0.8):    2 items, mean p=0.76,  actual frac_pos=0.00  ← overconfident
+predicted [0.8, 0.9):    5 items, mean p=0.84,  actual frac_pos=0.20  ← very overconfident
+predicted [0.9, 1.0]:   37 items, mean p=0.99,  actual frac_pos=0.30  ← extremely overconfident
+```
+
+The model is well-calibrated for confident negatives (it says "no" with p≈0 and is right ~99% of the time) but extremely overconfident for confident positives (says "yes" with p≈0.99 and is right only ~30% of the time *under my strict rubric*).
+
+**Observations:**
+
+1. **Eval pipeline worked end-to-end.** Pool-and-extrapolate produced an interpretable scorecard. The eval harness's self-tests covered the math; running it against real data exposed only one issue (the gitignored predictions JSONL), which was a documentation gap, not a computation bug.
+
+2. **Pre-reg falsifier "model flags >100 messages as positive" did NOT trigger** (48 model-positives is fine). The "0 model-positives" and "implausibly high recall" falsifiers also did not trigger. Pre-reg held; the run is a valid eval.
+
+3. **Pre-reg falsifier on F1 < 0.50 DID trigger** — this maps to the "Decision rule" branch that calls for a frontier-tier ceiling check (Sonnet 4.6 on the same 148 labeled items) to disambiguate "task is hard" from "this model is bad at this task." Deferring the ceiling check to a follow-up experiment because the more pressing finding is below.
+
+4. **The parser-failure batch was 10× enriched for model-positives** (17.3% positive rate vs 1.6% in the first batch). Code-block-containing messages BOTH triggered markdown-fence wrapping AND were more likely to discuss release-related work. After the parser fix, the eval set is unbiased — but in production this would be a fragile coupling worth flagging.
+
+**Surprises:**
+
+1. **The dominant failure mode is rubric ambiguity, not model capability.** The model labels "any message engaging with a release-related schedule discussion" as positive. My strict reading of the pre-reg rubric requires "directly announces or proposes a change to a previously-stated schedule." Under the model's permissive reading, ~80% of pool messages would be positive (most are in genuine schedule-related threads); under my strict reading, ~28% are. This is **not a calibration problem with the model**; it's an underspecification in the prompt+rubric. I disagree with the model on the same items I would disagree with another human labeler on if we used different rubric interpretations.
+
+2. **The pre-reg's "Hand-labeling shows I disagree with myself" falsifier was nearly triggered for a different reason** — not within-labeler drift, but rubric-vs-model interpretive divergence. Same underlying problem: the rubric is too vague to support binary classification consistently. The pre-reg falsifier should be expanded to "I disagree with the model in a way that suggests rubric ambiguity, not model error."
+
+3. **Recall was within the predicted band.** Despite precision being terrible, the model finds most actual positives — only 1 false negative in the 100-msg random sample. The model is *over*-flagging, not under-flagging. This is consistent with the model's permissive rubric interpretation: it casts a wider net than a strict reader would, catching most strict-positives at the cost of many strict-negatives.
+
+4. **The base rate prediction was off by ~3×.** I predicted ~2% true positives; my strict labeling found 14/148 ≈ 9.5% in the labeled set, which extrapolates to ~7% over the corpus. Even my strict rubric is finding more positives than I expected. The Cassandra dev@ 2014 corpus is denser in release-coordination signal than I estimated — likely because 2014 spanned multiple release cycles (1.2.x maintenance, 2.0.x active, 2.1 development) all running in parallel.
+
+**Conclusions:**
+
+- **Branch from the Decision rule:** F1 = 0.389 lands in the `< 0.50` branch — "task is harder than expected, or prompt is broken." Per the pre-reg, this would normally trigger a frontier-tier ceiling check. **However, the rubric ambiguity finding above suggests the right next step is rubric sharpening, not model substitution.** A frontier model would likely make the same interpretive choice the smaller model did (or worse, make a different one without flagging the ambiguity). The cliff is in *task definition*, not *model capability*.
+
+- **The detector is NOT promoted to Prototype.** Stays at Idea in `detector-catalog.md`. The pre-reg required F1 ≥ 0.65 AND precision ≥ 0.70; we're at F1=0.39 and precision=0.28 against a strict rubric.
+
+- **The eval harness is validated.** Math checks out, scorecard is interpretable, calibration data is now accumulating. Per-component eval discipline is paying off — we can localize the "failure" to *rubric* rather than to *the system*.
+
+- **Logprobs are usable for ranking but not for calibrated probabilities.** Brier 0.215 says raw logprobs aren't trustworthy as confidence estimates; downstream synthesis code that wants "X is true with 95% confidence" should not use these directly. Ranking ("the model is more confident in A than B") is fine.
+
+- **Pre-registration discipline justified itself on entry one.** Without the falsifiers and decision rules locked in advance, I'd have been tempted to retroactively soften the rubric ("the model's interpretation is also defensible") and report a precision of 0.85 with a slightly different definition. The pre-reg makes me confront the disagreement honestly.
+
+**Next:**
+
+- **Sharpen the `schedule_change_announcement` rubric.** The new rubric should explicitly handle: (a) "+1" / "-1" replies whose body re-quotes the parent's announcement, (b) substantive replies in a schedule-discussion thread that don't propose changes themselves, (c) standard release votes (which are NOT changes, just steps in a planned process). Once sharpened, write a new pre-reg and re-label the same 148 items — the existing predictions can be re-evaluated against the new labels at zero inference cost.
+- **Open follow-up bd issues** (see closing of si-qhz):
+  - `idea`: Sharpen `schedule_change_announcement` rubric and re-pre-register
+  - `idea`: Frontier-tier ceiling check on the same 148 items (deferred but valuable for U3)
+  - `idea`: Investigate whether messages with code blocks are systematically different signal-wise from messages without (the parser-failure batch finding)
+  - `idea`: Apply Platt scaling or isotonic regression to logprobs and re-measure Brier — quick test of whether post-hoc calibration recovers the upper-bin reliability
+- **The architectural commitment to "binary-per-category classifiers" survives this run.** The detector concept is fine; the rubric needs work. This is exactly the kind of failure mode where binary-per-category beats multi-class — we can fix one category's definition without retraining anything global.
 
 ---
 

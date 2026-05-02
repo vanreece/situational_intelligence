@@ -1,0 +1,148 @@
+{"id": "CALdd-zgcJ=Aja7PUPfjw6NmkjHYyXGzaiEQo1vHSCkbf+Mve5Q@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "Jonathan on construction-kit approach — debating, not proposing schedule change."}
+{"id": "CAAafH9SPSUdUWXjFAuzP7b+yTw97OdzdrpJ=Toyvk2NwtGKjkA@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "+1 reply to vote-resurrected; just affirming, not announcing."}
+{"id": "20140328210227.GA11249@debian.lan", "label": "negative", "sample_role": "pool", "notes": "+1 reply with quoted parent."}
+{"id": "8DDE7723-1A25-4CC3-A6B3-07F1D0AF9497@me.com", "label": "negative", "sample_role": "pool", "notes": "Jacob, question 'Isn't this how it works now?' — questioning."}
+{"id": "F954ED9F-7D75-4445-A535-5B611DFA7D90@internalcircle.com", "label": "negative", "sample_role": "pool", "notes": "Michael, supporting argument for proposal — engaging but not making new proposal himself."}
+{"id": "CAM+WaZirbtOJkYEuU+5zPQ35RB4EM-KYMW1=TU_jbZV8JtdanA@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "Paulo, 'I see, thanks for clarification' — non-content."}
+{"id": "CAFqWSgfs2W1gL34VWLwyO6AJfpBoKevVo20E0zD3x0RsqohumQ@mail.gmail.com", "label": "unsure", "sample_role": "pool", "notes": "Benedict, Re: Hinted Handoff — 'I plan to address this, but probably not until after 3.0'. Forward-looking commitment but no prior expectation was set, so it's borderline whether this is a 'change' to a previously-stated schedule. Excluded from P/R."}
+{"id": "9199B5A2-E26E-4BF2-B18E-A22F7AEFA4B3@datastax.com", "label": "negative", "sample_role": "pool", "notes": "Jeremiah, 'Everything should be good now. Thanks!' — status."}
+{"id": "CAK+hiSRLhz-JYzZ6Xr7q14jq_wGkt9GM=r9+9KPOCFBn+0eyzQ@mail.gmail.com", "label": "positive", "sample_role": "pool", "notes": "Aleksey, Re: 2.0.5 — '-1 ... we'll have to reroll' — announces release will need re-roll."}
+{"id": "CAKkz8Q1ie8ocGGYoXFHzed1s44mmiYwfdbBtDcnqLG34ZVuR+g@mail.gmail.com", "label": "positive", "sample_role": "pool", "notes": "Sylvain, [VOTE CLOSED] 2.0.5 — closes vote, announces re-roll with shortened 48h period."}
+{"id": "CAKkz8Q3+outX_3jKZg88deM8L9W0C_kvAPJbxivLTDnC4GgFeQ@mail.gmail.com", "label": "positive", "sample_role": "pool", "notes": "Sylvain, [VOTE CLOSED] 2.0.5 Strike 2 — regression, closing vote, restarting third strike with 24h."}
+{"id": "CA+1dbhMBUQtCcPC1ZALME-N=SfOD85CVs+yT7cRQC56L8L-dBA@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "+1 reply to 1.2.15 vote."}
+{"id": "CALdd-ziNj-rHnPMORo7XJH2R-U6syf-9Xw7YSQ+6XoJ1Z15GDw@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "+1 reply."}
+{"id": "CAAafH9SL=NrHTWrMrhoEmBirSSwOfkyh64y9joNpgjS4BCt1cQ@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "+1 reply."}
+{"id": "CALTRSKmu2hbp0vWYb=RRAiyBq0+2BBG7iE+rjE=p6tTBhJbitw@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "+1 reply."}
+{"id": "CAEPxca0Xa=eb2nXFr1-T=EaEhOYJUNWfwKGgJYAJ225zWs6Gxw@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "+1 to Thrift freeze proposal — affirming, not announcing."}
+{"id": "CAAwnuDtSBKhfoMBYqGu+cBtpdA_ppQb28ceJqaO5AkOsG2CPCw@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "+1 with backwards-compat caveat — affirming."}
+{"id": "CAENxBwwUSBtZDjcPk7kAcoW9EGA2iUCe_75apRWrUJwEigpEUA@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "-1 with reasoning — opposing the proposal but not announcing schedule change."}
+{"id": "CAENxBwwiDzfTb=O8SjtGV5GyC2ZXag0wwU0bUnKHsqGQ359hmw@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "Question (Can dynamic composites be used from CQL?) — not an announcement."}
+{"id": "CAKkz8Q3ic+dr6htGhTrm5GVuVaYd+e_jWQStFiwq1mtjrGrjEw@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "Answer to question — not an announcement."}
+{"id": "CAENxBwyadm-e60=dDGsMFLezQBVRQgX2SNOnP0K+nXaUVpKQNA@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "+1 with sarcasm — affirming."}
+{"id": "CAKkz8Q3tHQygxZuKgxuRmp7qP_KqbLA4Y83PJFC9Qt0RhsJPKw@mail.gmail.com", "label": "positive", "sample_role": "pool", "notes": "Sylvain, [VOTE RESURRECTED] 1.2.16 — proposes resurrecting vote with 24h extension instead of full 2-day re-vote."}
+{"id": "CALdd-zhXHU8ijMgFdX8yFvixMLQ1qwpmBi8pdkEVrXzjzWYCrQ@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "+1 reply."}
+{"id": "CALTRSKk5YMnMqTkDE2g3mLKuynfoZT6fuqOSno5uffkf=y0Oyg@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "+1 reply."}
+{"id": "CAFYK-53z6rZvmVZzkWNuQMgc1EYh=AYr3UwsxPiH5d3Xy3W0Tg@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "+1 reply."}
+{"id": "CAKkz8Q3nDn97ihVX5qYkceM7Ehm_WBBmDbTdMag1KNEPDxodGw@mail.gmail.com", "label": "positive", "sample_role": "pool", "notes": "Sylvain, [VOTE CLOSED] 2.0.8 — vote closed; will re-roll once CASSANDRA-6285 fixed."}
+{"id": "2427234C-266B-44CD-A5F9-3AB71E83F21A@internalcircle.com", "label": "negative", "sample_role": "pool", "notes": "Michael, defending original proposal with reasoning — not new proposal."}
+{"id": "CALamADJTwJ29Bf2ULS6uoCgzbB1e0Ok3R-q3U8dqrnASdfgVng@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "Jake, question — taking step back."}
+{"id": "2F4F5D39-A50A-4CDA-8C09-950E783D2F4C@internalcircle.com", "label": "negative", "sample_role": "pool", "notes": "Michael, clarifying motivation — not new proposal."}
+{"id": "CALamADL4oUXxCQuoxwL_qF1-q_03AGbdQxDjJhjeXOyqiVAe_A@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "Jake, exploring proposal mechanics — questions."}
+{"id": "87C34447-1800-4582-966F-5CD85C7060B7@internalcircle.com", "label": "negative", "sample_role": "pool", "notes": "Michael, defending — questions/agreement."}
+{"id": "CALamADJ7bZGEOz4booDd-6VoYuyWDM32Wv=ztkP+uymGRSRDdg@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "Jake, structuring discussion — not proposal."}
+{"id": "342B127D-5D3F-41E8-8F37-5DB20E1DABAD@internalcircle.com", "label": "negative", "sample_role": "pool", "notes": "Michael, agreeing — not proposal."}
+{"id": "CAHjqPu+EU2QWr1ZnL+YRqC-ckrVqq4qsyUdXA1=GyjsC4O7ThA@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "Jason, FWIW Ubuntu reference — not proposal."}
+{"id": "CA+1dbhPnU+=YvKiANwEBvnGMqOJ25FtAbckjLFa=r_G9w6rd1w@mail.gmail.com", "label": "positive", "sample_role": "pool", "notes": "Marcus, Re: Release Schedule — proposes specific LTS-like alternative (3.0 bug fixes / 3.1 small features / trunk)."}
+{"id": "CAKkz8Q2R7TNYbNO3NXeLaL8MDZtKZsqMjitkE3SLZhBCnw_X2Q@mail.gmail.com", "label": "positive", "sample_role": "pool", "notes": "Sylvain, Re: Release Schedule — proposes 4-month release cycle with rolling-upgrade guarantee."}
+{"id": "BC0C86C4-6214-47D0-9008-C37422FE617A@internalcircle.com", "label": "negative", "sample_role": "pool", "notes": "Michael, agreement to compromise — not proposal."}
+{"id": "CAM+WaZguCDr72eQbVXDjstW_e1N8FV1f-X3KyrwktG0FLNCn5Q@mail.gmail.com", "label": "positive", "sample_role": "pool", "notes": "Paulo, Re: 1.2.17 — directly proposes postponing release until next week."}
+{"id": "CAKkz8Q3f0URp4i_=8qOEved3gYoE+AyVNeoeP+3OjvTr6eQwNQ@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "Sylvain, rejecting postpone proposal — affirming current schedule, not changing."}
+{"id": "CALdd-zggZt6S7hQ1cx_NK3GBakRwwXyYTxDvQ6iC0uu1ruPcqg@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "Jonathan, 'Not this year' to bootcamp question — not release schedule."}
+{"id": "CAKkz8Q2_20vQSG3MW0SYqSTUGRrPD8ubL7kz+qkkeR+BRf_y5A@mail.gmail.com", "label": "positive", "sample_role": "pool", "notes": "Sylvain, Re: [VOTE PASSED] 1.2.17 — announces quick re-roll of 1.2.18 to address java-6 binary issue."}
+{"id": "CAFqWSgfThoc6p2am4q1c170KpWMqJXEeeFAfBX4PK7-W7jy7kw@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "Benedict, technical reply on lock semantics — not schedule."}
+{"id": "CALdd-zjdzufYpt4WHG3n0UbyGenJeFrLLwc-SDxMWt+_B9TSHg@mail.gmail.com", "label": "positive", "sample_role": "pool", "notes": "Jonathan, Re: Hinted Handoff — '3.0 we're already planning to move to file-based hint storage' — announces architectural plan tied to 3.0."}
+{"id": "CAKkz8Q07-06XA_P_PfwC5J4xWpwQVPqdA8PBnY+sX+49+2=4ug@mail.gmail.com", "label": "positive", "sample_role": "pool", "notes": "Sylvain, [VOTE CLOSED] 2.0.10 — closing, will re-roll once pig issues fixed."}
+{"id": "CAAafH9QMjBfKnnDx0-zhoA=bbu=+kO+bo55XbOrCWaGkwhvH+g@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "+1 reply."}
+{"id": "CAHjqPu+jxYLhnGSd3qqtXGQGTSV2eCDxog0J7c6pA0-nTGwpgA@mail.gmail.com", "label": "negative", "sample_role": "pool", "notes": "+1 reply."}
+{"id": "CAAafH9Sp+o-nEnVCA2N5btqxkV8kptzNbCPysDVLjE=LRv-UNQ@mail.gmail.com", "label": "positive", "sample_role": "pool", "notes": "Brandon, Re: 2.1.0-rc7 — '-1 ... we were planning to re-roll for other reasons' — announces re-roll plan."}
+{"id": "CAKkz8Q0aKbBi7csTUYsoDK5J1_rRQtp3xLSqiMp_Qn7fCcS4CQ@mail.gmail.com", "label": "positive", "sample_role": "pool", "notes": "Sylvain, [VOTE CLOSED] 2.1.1 — closing vote, will re-roll artifacts."}
+{"id": "CALamADLoG9QBj-Q4AoXnh-WWmXR2CCBg8O_MjQy5NSZBozUjaQ@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 1.2.19"}
+{"id": "CAB-G1jiwMsq83ZB6DtL0GdraZFUa2yp=Xbdq0jg=oDNdAAdk_Q@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Update CQL page"}
+{"id": "332FBCA2-AAB0-4285-85FB-42CACF4A8E7C@me.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Expired column showing up"}
+{"id": "CFE303B6.227C5%Sylvain.Boily@nuance.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: request to have metrics-core updated to 3.X (3.0.2) for\n cassandra-all"}
+{"id": "53A97CAC.6040900@gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Proposed changes to C* Release Schedule"}
+{"id": "538E1B25.5010605@gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Refactoring cassandra service package"}
+{"id": "CA+ixes4dt6cD4yVNjVXtnq+pAEBQoO_P2FzAb3d7g9YkxyZ3wQ@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Embedding Custom Replication Strategy in Cassandra"}
+{"id": "CAKmMYa_F3ops4pHMKHJiX6qubpom4ymtq6RMxCW=EZ5xYKGNkA@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Proposal: freeze Thrift starting with 2.1.0"}
+{"id": "BLU436-SMTP92ED2980527E088B4FDC11E53C0@phx.gbl", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.0.8 (strike 2)"}
+{"id": "CAENxBwwdTc1JkN_JCnZCrAbTW2HuMoXOanBOrs=Huc_eL1DTkA@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Proposal: freeze Thrift starting with 2.1.0"}
+{"id": "CALdd-zg_1Og+JeM5H+A88Yq7aShuYdmJfGoY1d6+ohWT5gDtMA@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.0-rc5"}
+{"id": "CALamAD+VpPEYjm7brkZJBwQKaJNwZ=UAPhCA2BKd-vyFOdmA-A@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: [VOTE] Release Apache Cassandra 2.1.2"}
+{"id": "53039C49.4030700@jblasi.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: getSequentialIterator and ranges"}
+{"id": "CA+1dbhNB1vH4hEebNtdJbmnV4nosme8Z2RYHfC3X19qASwQHmg@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.0-beta1"}
+{"id": "CANsCxF9irecBbuSM7c8r1Etj8Q_Gpc+b=9vgtQigbTs53EiAWQ@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Proposal: freeze Thrift starting with 2.1.0"}
+{"id": "538D8CE6.3070408@gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Refactoring cassandra service package"}
+{"id": "56FC9731-2BE6-47FE-868B-0C1424738830@vast.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: CMS GC / fragmentation / memtables etc"}
+{"id": "CAFqWSgeBmz=Kt1puqjQKqSpbuXmmLAzrbKs0xk1ehEJWX6Hn4w@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [jira] [Commented] (CASSANDRA-6746) Reads have a slow ramp up in\n speed"}
+{"id": "CAKkz8Q1C82E8zTs-hqdd5WQkbnAn1triE6F1pL1iGugP9MBQhQ@mail.gmail.com", "label": "positive", "sample_role": "random_sample", "notes": "Sylvain, [VOTE CLOSED] 2.1.0-rc6 — 'let's wait on 7743' — release delayed pending fix. Model missed this; the new content is brief but the [VOTE CLOSED] subject + 'wait on 7743' is a clear schedule deviation announcement."}
+{"id": "CAKkz8Q2L=DGFHDguRUKo2UWZCMByHEyYumGQ354ngZ+neJ2GOw@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Committers: new cassandra-2.1 branch created"}
+{"id": "CAHjqPuK4uRySA9ni5Ak-GxoumrPFnkdBFF8Rqj42YGMB0aambg@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.0-rc2"}
+{"id": "CAFqWSgc-q2oSGw5xGo1-OvAMovOAmkyyR9pLa8hoNdVXGbwO7w@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: CMS GC / fragmentation / memtables etc"}
+{"id": "CAAafH9Q3LBtks89JHzGEiH=JMPjsi+08xaVehwpO8nMGX+41tw@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.2"}
+{"id": "git-pr-49-cassandra@git.apache.org", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: [GitHub] cassandra pull request: change private evictionCheckTimer to\n publi..."}
+{"id": "CAAafH9QBCd7MTjN2RsgDbX9TasG8B1brBL5TBM-gWYHhVAuoSw@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Refactoring cassandra service package"}
+{"id": "CAGM0Up-56ZnX5Mn6kUmk4K56wKv7Xh0KQu6LrzJp3T2tXUGBBA@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Error opening zip file or JAR manifest missing"}
+{"id": "20140719202124.GA6794@debian.lan", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.0-rc4"}
+{"id": "CAPH+nLNRrEq-iaHZbHT362xjnKGbVeMx9E6wmLXkgHxxDNXwAA@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Windows-aware Cassandra"}
+{"id": "CAAam9ssw2548e3J1SqoN3BLn38+HT7EYia7ewuvKBveyGvLjTg@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 1.2.14"}
+{"id": "CAD_Xd-+-dx5-UDvPH5HJ_dFVcaeVa7wZvinUNik0xA82+11vOg@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: bugs report for 2.0.7"}
+{"id": "CAKkz8Q05iSYhZPYex58ws9cB680d=RBFSCv5Q+Cw5vDfcvxvZg@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: [VOTE SUCCESS] Release Apache Cassandra 2.1.1 (Strike 2)"}
+{"id": "B351B192CAA947EE932830CD5F0FAD98@yeschenko.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.0-rc7"}
+{"id": "CAKkz8Q1E55YLffKQ1X5SZCDz9kfwrLiW2sTtuEgW4tN7S+zLQw@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: [VOTE] Release Apache Cassandra 2.0.11"}
+{"id": "CAKkz8Q1dukmM7HRPksubhaNcNHTtH+15QmFCOQbt5f_XF5MLEQ@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: bugs report for 2.0.7"}
+{"id": "CALdd-zgh-ncbQtoYvdFWd_aJPdz9h9XMYU4eFtq7b8OzZHKuqg@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.0-rc1"}
+{"id": "CAAam9ssJUXgtRSnoCosLZhNbEvaSuAaWNLxeXqYeVAuEumKO1w@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: ISSUE: Cassandra Custom Secondary Index reading CQLType\n collection values"}
+{"id": "CALamADKs-7Ax5f_EAasjoyTK+_5nAxC4F-PM1AdGMtwiGUNtRA@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: [VOTE RESULT] Release Apache Cassandra 2.1.2"}
+{"id": "CAENxBwzT9pwYDyMgVJN_2M4DA1MjPbXruN637q=YNriDv+5XWw@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Proposal: freeze Thrift starting with 2.1.0"}
+{"id": "E7D5064E-A50E-482D-8FE4-51888C551670@gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Gossip Analysis"}
+{"id": "CAENxBww7ChpRQqa=iW_kjQ9kgkbihbtZ15dtQ0hiiNwC7_xRBQ@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Proposal: freeze Thrift starting with 2.1.0"}
+{"id": "CAFqWSgc3PMtF2Q3cvS-jF8mk5EJVMd3qcwUnxRQ12FvE0n42-g@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [contrib] Idea/ Reduced I/O and CPU cost for GET ops"}
+{"id": "CALdd-zjPYT0AJ_Vim5S-X87VcJUG=-fHfas+p-bPYf9x36Fqyw@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.0-rc7 (strike 2)"}
+{"id": "53F0FB02.5010004@outlook.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.0-rc6"}
+{"id": "CALdd-zikY6P4C=fNUR-M3W9FfbvRhKWtMp3gCV-JumKcgEUSiA@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: 2.1 rc3?"}
+{"id": "63B40512-58B9-4F06-926D-24FF0A0CEB41@vast.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: IDEA code style settings"}
+{"id": "547E0D52.6090604@pbandjelly.org", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Reviewing patch: CASSANDRA-7882"}
+{"id": "F5910503-3F88-44EC-BCD8-4D13A08CE29B@free.fr", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Request: easy access to local data features"}
+{"id": "CALdd-zgRnYd++YKQwtc_A025w6t2nLOt9iZpa67J2+aZWrmsFw@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Timeuuid inserted with now(),\n how to get the value back in Java client?"}
+{"id": "CAKYY9AJZWLF-oh8OoKdw2FVkOi8LQccwi6jaATwKncg_52XR2g@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Fork Cassandra-0.8"}
+{"id": "CALdd-zjPbfZEnqJ=fU8CrB+ZmD474dNPhtMALAq+8yp34ebbDQ@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Proposal: freeze Thrift starting with 2.1.0"}
+{"id": "CAAafH9RbJPzaa36u7=T576rkgOsjd7Oo=Fexg5X2P=xrKwGhdw@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.0-rc1"}
+{"id": "C46BD0EB-0787-4479-9C6F-0540CF8A947D@vast.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Cassandra Schema Change Performance Improvement"}
+{"id": "luva1t$vj$1@ger.gmane.org", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 1.2.19"}
+{"id": "CALTRSK=z60uY2t11bWsh+xNy_=-R0iW=5gUrgXj=K9khZEvv3g@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 1.2.18"}
+{"id": "6370EB47-6ECD-432A-823A-3682E44ED2AF@vast.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Things that are about 1M big"}
+{"id": "CAFYK-52RKonE=P8GHSntmpD0QZ8sytKSUm1pHwfrvfv+zZ0a0g@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Proposal: freeze Thrift starting with 2.1.0"}
+{"id": "CAC=xA+XceLqez6Zuk9GWSGeW7pgEGu9TTu-0+NP+Ub2saTUqRQ@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Synchronization needed on Schema.cfIdMap?"}
+{"id": "82f3a5404e930a336ddddf90cd3185b7@baybroadband.net", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Refactoring cassandra service package"}
+{"id": "90E93F42-8FF6-41B3-AAD2-1B9F04A50658@vast.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Hinted Handoff/Atomic Updates & SnapTree replacement with BTree:\n new cassan"}
+{"id": "CAENxBwx6KDQ3iSkUdtcb_z9qt3yYg114M9nrzEqUfOsDM0fjOw@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Proposal: freeze Thrift starting with 2.1.0"}
+{"id": "CAPH+nLO96N+wsgV0OqcUmGT03ciQbCH0Ois_eKyr0SJ76nhgDg@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.1 (Strike 2)"}
+{"id": "CALdd-zj2YsBB6=Uqq_q8wcVm3EniWBoma7S0=v0m93w_sJcv0A@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Proposal: freeze Thrift starting with 2.1.0"}
+{"id": "CAHjqPuJ41knsF1hc0oex1Nrv7thM8-7vQ02-XzERNNbcy7fpxQ@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.0"}
+{"id": "CAAafH9R+VwDi0bbizw6t5W+-CRkOjTfakodzmteMchDbwWUWrA@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 1.2.19"}
+{"id": "86A105A3-6D33-4504-AA4E-66D7894CF535@gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Performance Difference between Batch Insert and Bulk Load"}
+{"id": "6308A6DD-EC0F-4A79-B74A-9620D49DD7F6@icloud.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: why bloom filter is only for row key?"}
+{"id": "CALdd-zgJmd3nBU2cxrTBYmAQX8qgVj281-+zpRT766QpfXWXrw@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Next-generation Cassandra Conference, June 13, Austin TX"}
+{"id": "CAFqWSgeSS83iSOHQwpMnvNU0vY7K4nxWOTHm9zSpzOJwp3a7gw@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Use of System.exit() calls"}
+{"id": "CALamADKH=MB4aNG+0L53CJqVvparFmaSg8ZkFjAwDS=LL0UEoQ@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.0"}
+{"id": "CAFqWSgdW3=JxHFM4qBis5zt7ra7YAQ_zJtxqeeBng-j1rKoL+w@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: CQL unit tests vs dtests"}
+{"id": "CALamAD+9+q7T5cq1oZjopp3cTFJacLe0yzdVh-vXOE8JJQh0Tw@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.0-rc3"}
+{"id": "CALTRSK=EUM-DBBr015Z+e4seVO13mkAjLFQU23mJMebOh1doNA@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Proposal: freeze Thrift starting with 2.1.0"}
+{"id": "CAAwnuDsXZuKrfQDRcT2AvEvcgzJqFzUKM3SzUTe1JMKQ0Ug_rw@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.0.8"}
+{"id": "CAAafH9Qn9ogLDFB6OrUXiwYdZ8dGfC7uwCM5GdkAkK4uKnK7Jw@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.0.7"}
+{"id": "D5865AB2-CCDE-474F-8D02-C8070D84E5EB@snazy.de", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Latest Code from Trunk - Server is not starting"}
+{"id": "CACz-ikunNVmNotYLWm4TaTkWLW+bRWugo48+LOcCCwgdcZk8_A@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Next-generation Cassandra Conference, June 13, Austin TX"}
+{"id": "CAHavyJC7VUa0nkPPhQcCCUMUQ1LxjY0AYXrCd+0UL1LfHtb4UQ@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Fwd: Fw: Spark-Streaming: output to cassandra"}
+{"id": "b166bf97ce504f8f8820ca2cf34c7fd6@N111XMB0240.skhms.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Question on commit log"}
+{"id": "CALTRSK=K5FN_NYbO67ZMZKA14J_MNGDx1LGmrL5BqJg2YydBDw@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.0-rc3"}
+{"id": "CAFqWSgc5iDX+hyhyAsZkr3pPWjCOU1vNRYPU5KxKGanxzL5vcg@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: CMS GC / fragmentation / memtables etc"}
+{"id": "CALTRSKmY8Am10cyU1tznijo05Zea4mQSfFVmhyMsNwg56PhedA@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Refactoring cassandra service package"}
+{"id": "CAAafH9Rx0UpsU=Dc6W3k7TO=8F0BCLEUTn4VFA_vppQ-8dy8mg@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Committing to 2.0 and merging up without touching 2.1.0"}
+{"id": "20140301100800.D6E4D932144@tyr.zones.apache.org", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: [GitHub] cassandra pull request: Better support for virtual nodes in\n hadoop..."}
+{"id": "CALdd-ziVYQ2NH310hY6vhPqZHyTWAo7Xzf-ttpjXszx5fjG3vg@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Cassandra internals bootcamp, Sept 12-13, San Francisco"}
+{"id": "CAKkz8Q1BV4xGuZrWOgSiUB3npS5pWRyDiyyO5hc4+43nG8j+RA@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: [VOTE SUCCESS] Release Apache Cassandra 2.0.11 (strike 2)"}
+{"id": "CAAafH9T6gp6pX7MHa5WsoE_RYS0n1vCMe1bR-UMtWx0OB+APpw@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.0-rc6"}
+{"id": "CABhc1sLdhXcCgwNkZ6jv40zJ1e0XnVY7NMu1O21aSe0yeGwRrQ@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Error when running Cassandra"}
+{"id": "CAHjqPuL1Jx-O=NWejLVEZ7MNQcxDmOx_Eh2kBO0wr9-t0t8xPQ@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.0-rc3"}
+{"id": "CAA_N-71NOaK9ujquUKBERADdjipJ0eAd_rDjFSE8gpxZXM+RRQ@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.0.6"}
+{"id": "CAPKffWvHwaiPP7qoixAmowmafwB6w1-N4C_dd_e8Pg_0NTB64Q@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: CQL unit tests vs dtests"}
+{"id": "CAKkz8Q0YqyPaKV8R+6EhthgED=_GOcrGuAVutftpaHy52KkEEA@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.0.9"}
+{"id": "CALdd-ziAthMQSebqOKOUK=A6xHqLVi1QX7xKZiVt3NbtSOC6bg@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.0-rc6"}
+{"id": "7CB0C3CE-5695-4654-8815-9605D21D498C@thelastpickle.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: wiki access"}
+{"id": "CAKkz8Q1MfDdZ67MT6QuDuXPTDDPBLDWQNJ4npx=4PODrBj_D0g@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: [VOTE PASSED] Release Apache Cassandra 2.0.5 (Strike 3)"}
+{"id": "CAATDmt-SfZcdBYa=ohrYmZtcto8r4wXYxLrqwmDsE_53FjoJtg@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Partitioned Counters Design"}
+{"id": "0B722B13-733A-41DA-95C1-2427D73A112E@gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: Performance Difference between Batch Insert and Bulk Load"}
+{"id": "CAFqWSgdKSRw_ioSb8BKhczsz6aeugKKob3sDCcT1NNDpGhN7_w@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Performance Tickets"}
+{"id": "CABgRvPG+vDiLjpbB47Dvf7bJDDVEE9E4ZEv08Rf-7braXKjAfg@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Cluster state merges during gossiping"}
+{"id": "91E2CE6D-E727-4199-85D4-62FD9B98AFFA@me.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Reads requiring response from both servers."}
+{"id": "CALTRSKnRtztn5Rk7end1DFxJ2uOsYuh39MZbO37C5z9-FmYFWw@mail.gmail.com", "label": "negative", "sample_role": "random_sample", "notes": "Random-sample NEG: Re: [VOTE] Release Apache Cassandra 2.1.0-rc2"}
