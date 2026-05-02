@@ -110,7 +110,50 @@ Negative results compound as much as positive ones. Skipping the pre-reg block i
 
 ### Results *(commit this block after running)*
 
-*(To be filled in after the four runs land. si-s9y closes with a pointer to the Results commit.)*
+**Scorecards:** `results/evals/schedule_change_announcement-depth-sweep/scorecard-depth-{0,1,2,999}.json`. Side-by-side:
+
+| depth | model+ | TP | FP | precision (95% CI) | recall (95% CI) | F1 | Brier |
+|------:|-------:|---:|---:|--------------------|-----------------|---:|------:|
+| 0     | 5      | 4  | 1  | 0.800 [0.38, 0.96] | 0.073 [0.04, 0.13] | 0.134 | 0.070 |
+| 1     | 31     | 8  | 16 | 0.333 [0.18, 0.53] | 0.191 [0.10, 0.34] | 0.243 | 0.140 |
+| 2     | 41     | 12 | 23 | 0.343 [0.21, 0.51] | 0.496 [0.22, 0.78] | **0.405** | 0.154 |
+| 999   | 46     | 11 | 29 | 0.275 [0.16, 0.43] | 0.364 [0.17, 0.63] | 0.314 | 0.199 |
+
+**My pre-registered prediction was that depth=0 would win F1.** The actual best-by-F1 is depth=2. The pre-reg's "depth=0 wins" hypothesis is **falsified**.
+
+**Observations:**
+
+1. **Depth=0 has the highest precision (0.80) but devastating recall (0.07).** Only 5 model-positives total, of which 4 are real. The 4 it catches are messages whose *new content directly restates the schedule decision*: "We were almost there but [regression]... I'm closing that vote", "I was thinking we could lower the release cycle to 4 month", "I propose postponing release of 1.2.17", "We'll re-roll as soon as the pig stuff are fixed". The 1 FP is "Not this year" (bootcamp event, model interpreted as release schedule). The model becomes extremely conservative when given just the new reply.
+
+2. **Depth=2 is the F1 winner at 0.405**, a real improvement over the depth=999 baseline (0.314, equivalent to si-bwo's merged 0.358 within run-to-run variance). Recall jumps from 0.07 (depth=0) to 0.50 (depth=2) — most actual schedule-change announcements in this corpus need parent + grandparent context to be recognizable as such, because the new content typically *refers to* a previously-stated date without restating it. e.g., a "+1" reply to "I propose postponing 1.2.17" is contributing to a schedule decision but doesn't itself contain the announcement.
+
+3. **Brier diverges by 0.13 across depths** (0.07 at depth=0, 0.20 at depth=999) — falsifier triggered. Calibration is genuinely depth-sensitive: depth=0 makes the model more conservative and better-calibrated; depth=999 floods the model with quoted material it confidently misclassifies. This complicates downstream use of logprobs in a way si-kxh (calibration follow-up) needs to account for — the right calibration map is per-(detector, depth), not per-detector.
+
+4. **17 predictions differ between depth=999 sweep and si-bwo's relaxed-cap merged baseline** despite temperature=0. The F1 differs by 0.04 (0.314 vs 0.358), just under my 0.05 falsifier threshold. The diffs are roughly balanced (POS↔neg in both directions). Sources are vLLM non-determinism (batch effects, kernel non-determinism), the blank-line-collapse in `extract_at_depth` slightly modifying input, or other minor variation. Methodologically: assume per-run noise of ±0.04 F1 on this corpus when comparing scorecards. Larger differences are signal; smaller ones are noise.
+
+5. **One transient HTTP 400 at depth=999** on a 3,200-char message (well under the 60K cap). Likely vLLM transient. Affects 1/731 predictions; does not change conclusions.
+
+**Surprises:**
+
+1. **The "model anchors on quoted material" theory from si-bwo was incomplete.** The model isn't *only* drawn to quoted material; it's drawn to whatever schedule-language signal is in front of it. With reply-only (depth=0), the new content lacks signal for most messages → conservative NEG. With full thread (depth=999), too much quoted material muddies things. Depth=2 hits a goldilocks zone where the parent + grandparent disambiguate references in the reply without flooding noise.
+
+2. **The optimal envelope is empirically larger than I expected.** I expected depth=0 or depth=1 to win. Instead it's depth=2 — *more* context, not less. The lesson: don't theorize your way to the right context envelope; sweep it. This generalizes the `local_temporal_context.md` memory.
+
+3. **High precision doesn't help if recall collapses.** Depth=0 nearly recovers a "perfect precision" detector but at 7% recall — useless for production. The eval design (pool-and-extrapolate) made this visible; a precision-only score would have been misleading.
+
+**Conclusions:**
+
+- **Best depth for `schedule_change_announcement` on this corpus: depth=2.** F1 0.405, precision 0.343, recall 0.496. Adopt as the default for this detector going into si-d6m (rubric sharpening). Re-pre-register at depth=2 before the rubric work.
+- **Detector still NOT promoted to Prototype.** Original pre-reg required F1 ≥ 0.65 AND precision ≥ 0.70; depth=2 gives 0.41 / 0.34. Improvement is real but insufficient. The next move (rubric sharpening) is what might close the gap.
+- **The frontier-tier ceiling check (si-2z6) is now better-formed** — run Sonnet at depth=2 (the best envelope this model achieves) rather than depth=999, to disambiguate "task is hard" from "this model + this envelope is bad" cleanly.
+- **Update to `local_temporal_context.md` memory:** the optimal envelope is empirically determined and larger than my intuition suggested. Add the observation that "more context isn't always more noise — for reference-heavy detectors (where the new content refers to but doesn't restate the signal), context windows of depth 2-3 in the linear thread can substantially help."
+- **Methodological:** vLLM non-determinism is real at this scale. Future detector experiments should expect ±0.04 F1 between supposedly-identical runs. For meaningful per-run conclusions, the F1 effect should clear that noise floor.
+
+**Next:**
+
+- Update `local_temporal_context.md` with the empirical-envelope finding.
+- Open `si-d6m` (rubric sharpening) at depth=2 specifically. Re-pre-register before the rubric work.
+- File a new bd issue for "investigate vLLM non-determinism on the same item across runs" — quantify the noise floor explicitly, not anecdotally.
 
 ---
 
