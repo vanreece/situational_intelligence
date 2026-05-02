@@ -61,6 +61,93 @@ Negative results compound as much as positive ones. Skipping the pre-reg block i
 
 ---
 
+## 2026-05-02: Substrate first-test — prompt variants over MessageContext separation
+
+**Question:** Does separating `new_content` from `quoted_segments` (per the user's strategic guidance, recorded in memory: `messages_are_not_single_thesis_streams.md`) materially help `schedule_change_announcement`? Is the cheap-tier model's failure mode at depth=2 fundamentally an anchoring-on-quoted-material problem, a rubric-ambiguity problem, or both?
+
+**Beads issues:** si-clz (run), si-71f (pre-reg), si-1lz (engineering prereq, closed in d3384c9). `discovered-from: si-pfo`.
+
+### Pre-registration *(commit this block before running)*
+
+**Setup:**
+
+- Same 731-message corpus, same OpusLabel pool (149 items, 14 OpusPositive / 134 OpusNegative / 1 OpusUnsure), same model (Qwen3-Coder-30B-A3B-Instruct-gptq-4bit), same temperature=0, same eval harness.
+- `extract_message_context()` (committed d3384c9) splits each body into `new_content`, `quoted_segments[]`, `attribution_lines[]`, `signature`. Validated end-to-end on all 14 OpusPositives.
+- Three prompt variants run against the full 731-message corpus:
+
+**Variant A — `new_only`:**
+- System prompt: unchanged from baseline (hash `170dcaf6fa91613b`'s system prompt).
+- User template:
+  ```
+  Message:
+  From: {from_raw}
+  Subject: {subject}
+  Date: {date}
+
+  {new_content_or_placeholder}
+  ```
+  where `{new_content_or_placeholder}` is `extract_message_context(body).new_content`, or the literal string `(no new content from this author in this message)` if empty.
+- Quoted material is invisible to the model.
+
+**Variant B — `new_with_marked_quoted`:**
+- System prompt: baseline system prompt + appended sentence: `"The user message below contains a NEW REPLY (this author's actual statement in this message) followed by QUOTED CONTEXT (text quoted from earlier messages, NOT this author's statement). Base your schedule-change judgment on the NEW REPLY only; the QUOTED CONTEXT is reference, not the author's claim."`
+- User template:
+  ```
+  Message:
+  From: {from_raw}
+  Subject: {subject}
+  Date: {date}
+
+  NEW REPLY (this author's statement):
+  {new_content_or_placeholder}
+
+  QUOTED CONTEXT (from earlier messages, for reference only — NOT this author's statement):
+  {quoted_segments_concatenated_with_depth_markers}
+  ```
+- `{quoted_segments_concatenated_with_depth_markers}` joins each segment as `[depth N]\n{text}\n` in original order. Truncated to fit `MAX_BODY_CHARS` budget.
+
+**Variant C — `current_baseline`:**
+- The existing depth=2 prompt (system_hash `170dcaf6fa91613b`). Re-uses the run-0 predictions from si-pfo (no fresh inference required for C).
+
+Each variant gets its own `prompt_hash`. All three predict on the same 731 messages; same labels file is used to compute scorecards.
+
+**Frozen artifacts:** the OpusLabels, the corpus, the eval harness, the `extract_message_context` implementation (commit d3384c9), the three exact prompt strings above, temperature=0.
+
+**Prediction:**
+
+| variant | predicted F1 | mechanism |
+|---------|-------------:|-----------|
+| A — `new_only` | 0.40 – 0.55 | Removing quoted material **fixes the Op-13 anchoring failure** — Jonathan's actual new content ("It's too late for a schema change in 2.1") is itself schedule-relevant, so Op-13 may *still* fire as TP, but for the right reason. May regain or hold most of the 11 other stable-TPs (their schedule signal is in the new content, see Opus-positives analysis). May lose Op-5 / Op-6 if their new_content is too terse for the cheap-tier without supporting context. Net F1 ≈ baseline, with cleaner mechanism. |
+| B — `new_with_marked_quoted` | 0.40 – 0.55 | Similar to A but the model has fallback context. Predict: model may largely ignore the structural marker (cheap-tier instruction-following is imperfect at this scale); behavior closer to C than to A. |
+| C — `current_baseline` | 0.405 (the si-pfo run-0 number) | Reference. |
+
+**Per-message predictions for the high-information cases:**
+
+- **Op-13 (Jonathan, hint storage):** under A, prediction is uncertain — the new content alone ("schema change in 2.1, planning to move to file-based hint storage in 3.0") is schedule-adjacent but less formulaic than the quoted "after 3.0" the cheap-tier had been anchoring on. **50/50 on whether A flips Op-13 to negative.** Under B, model has both signals; lean toward continued positive.
+- **Op-5 ("I'll re-roll the artifacts shortly"):** under A, 89-char new_content with the formulaic "re-roll" verb. Cheap-tier should fire — if the prior FN was driven by quoted-context confusion, this should flip from FN to TP. **Predict A flips Op-5 positive.**
+- **Op-6 ("Alright, let's wait on 7743"):** 27 chars, no schedule keyword. Predict A still misses Op-6 — the substrate change can't substitute for the missing JIRA-state-resolution capability that si-qdf (typed tags) would provide.
+
+**Decision rule:**
+
+- **Variant A F1 ≥ baseline + 0.05 (i.e., ≥ 0.455):** substrate change pays off in its simplest form. Adopt `new_only` as the depth-equivalent default for `schedule_change_announcement`. Substrate hypothesis confirmed; expand to next detector.
+- **Variant B F1 ≥ baseline + 0.05 AND > Variant A:** structural marking is the right intervention. Cheap-tier can use context when told its provenance. Adopt B; expand the marker design to other detectors.
+- **A and B both within ±0.05 of C:** substrate change is neutral *for this detector* in terms of F1, but mechanism may have improved (e.g., Op-13 right-for-right-reason instead of right-for-wrong-reason). Continue to si-d6m for rubric work, but cite this experiment as evidence that the *next* detector should be picked specifically to test where the substrate matters more (e.g., a detector where author-baseline or thread-context is load-bearing).
+- **A or B drops F1 by >0.10 vs C:** something pathological. Inspect failures before drawing substrate conclusions.
+
+**Falsifiers / mind-changers:**
+
+- **A produces ≤5 model-positives total** (vs 41 in C): new_content is too sparse for this detector at this depth-equivalent. Means the detector requires *some* context to function; the right cut isn't "no quotes" but "marked quotes" (B). Doesn't falsify the substrate idea — refines its application.
+- **B and C produce identical predictions** (within noise floor of ±6 messages from si-pfo): cheap-tier ignored the structural marker. Major U3 finding: at this model scale, structural in-prompt instructions don't reliably steer behavior. Implies that substrate value at the cheap-tier requires *removing* irrelevant content (variant A or harder cuts), not *labeling* it.
+- **Op-13 stays cheap-tier-positive under A** with new_content alone: contradicts our si-pfo prior that the model anchored on quoted Benedict text. The lone-tp-diagnostic file gets another correction. The model genuinely understood Jonathan's reply; the "right for wrong reason" framing was wrong.
+- **Op-6 flips to cheap-tier-positive under A** (27 chars, no schedule keyword): cheap-tier extracted schedule semantics from "Alright, let's wait on 7743" without supporting context. Updates U3 in the favorable direction; reduces urgency of typed-tag substrate (si-qdf).
+- **Variant A regresses on the 11 always-stable TPs**: removing quoted context loses signal even when the new content seemed sufficient. Either the new_content extractor has a bug on those messages, or the model was in fact using quoted context productively — not just anchoring wrongly.
+
+### Results *(commit this block after running)*
+
+*(To be appended after the runs complete and the analysis lands.)*
+
+---
+
 ## 2026-05-02: Quantify vLLM non-determinism at the prediction level
 
 **Question:** What is the per-run noise floor on classifier scorecards at temperature=0 with this vLLM deployment? Without it, we can't tell signal from noise on small F1 movements — and rubric-sharpening (si-d6m) is going to produce a series of small F1 movements.
