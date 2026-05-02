@@ -61,6 +61,54 @@ Negative results compound as much as positive ones. Skipping the pre-reg block i
 
 ---
 
+## 2026-05-02: Quantify vLLM non-determinism at the prediction level
+
+**Question:** What is the per-run noise floor on classifier scorecards at temperature=0 with this vLLM deployment? Without it, we can't tell signal from noise on small F1 movements — and rubric-sharpening (si-d6m) is going to produce a series of small F1 movements.
+
+**Beads issues:** si-pfo (run), si-dwi (pre-reg). `discovered-from: si-s9y` (the depth-999 rerun observed ~17/731 prediction differences vs. the si-bwo merged baseline despite identical inputs and temperature=0).
+
+### Pre-registration *(commit this block before running)*
+
+**Setup:**
+
+- Same 731-message corpus (`data/processed/apache/`), same prompt (hash `170dcaf6fa91613b`), same model (Qwen3-Coder-30B-A3B-Instruct-gptq-4bit), same labels file (149 items), `quote_depth=2` fixed.
+- Existing `cassandra-2014-predictions-depth-2.jsonl` becomes **run-0** (the si-fnw winner).
+- Five fresh runs: `cassandra-2014-predictions-depth-2-run-{1..5}.jsonl`. Same CLI, same homelab endpoint, no other parameter changes. vLLM `temperature=0` as before; no explicit `seed` parameter is sent (vLLM's default seeding policy applies).
+- Six runs total → 15 pairwise comparisons of (run_i, run_j) over 731 predictions each.
+- Eval harness: re-run `pool_and_extrapolate.evaluate` against the same labels file for each run; report per-run F1 / precision / recall / Brier and the spread across runs.
+- Disagreement analysis: for every message id, compute the number of runs (out of 6) that flagged it positive. Bin by flip count (0 = always-neg, 6 = always-pos, 1-5 = unstable). Cross-tabulate flip count with `p_positive` from run-0 to test the "noise concentrates on borderline" hypothesis.
+
+**Frozen artifacts:** the prompt, the rubric, the labels, `quote_depth=2`, the eval harness, the corpus. The only thing varying across runs is the vLLM endpoint's run-to-run output (whatever combination of GPU non-determinism, batching, KV-cache state, and stochastic sampling at logit-tie produces it).
+
+**Prediction:**
+
+- **Pairwise prediction disagreement: 1–3% per pair** (≈8–22 message-id flips per (run_i, run_j) pair out of 731). Anchored on si-s9y's observation of 17/731 differences between depth-999 reruns.
+- **F1 spread across the 6 runs (max − min): 0.04–0.08.** Each flipped TP/FP shifts F1 by ≈0.02–0.03 at this base rate, so flipping 2-4 borderline items per run produces this band.
+- **Disagreement concentrates on borderline `p_positive`** (run-0 logprob in [0.3, 0.7]). The "always-pos" and "always-neg" buckets dominate; the unstable bucket is small (5–15 messages) but accounts for nearly all the F1 spread.
+- **Flip direction is roughly symmetric** — POS↔neg flips are not one-sided. (si-s9y noted this qualitatively for the depth-999 reruns; the 5-run sample should confirm it.)
+- **No outlier run.** All 6 runs land within ±0.04 of the mean F1.
+
+**Decision rule:**
+
+- **F1 spread (max − min across 6 runs) < 0.04:** noise floor is small. Adopt **±0.04** as the published per-run F1 noise floor. Future scorecard movements >0.04 are signal; ≤0.04 require multi-run CIs. The si-fnw depth=2 advantage (0.075 over the plateau) clears this floor — depth=2 conclusion holds.
+- **F1 spread 0.04 ≤ x < 0.10:** noise floor moderate. The depth=2 vs plateau gap of 0.075 sits inside the noise floor's upper end — **depth=2 may be on the plateau after all, not above it.** Future detector sweeps need ≥3 reruns per condition; report CIs not point F1. si-d6m's rubric work needs to use multi-run baselines.
+- **F1 spread ≥ 0.10:** noise dominates signal at this scale. Halt detector tuning. Investigate vLLM sampling parameters (try `seed=N` if the vLLM build supports it; check whether `temperature=0` is being honored or silently coerced; check whether request-level batching is producing the variance). Re-pre-reg before resuming detector work.
+- **Zero flips across all 15 pairwise comparisons:** vLLM is actually deterministic. The si-s9y / si-bwo differences came from something *other than* non-determinism — different prompt hash, different model build, different parser version, different `quote_depth`. Audit those artifacts before adopting the "deterministic" conclusion; the alternative explanation has to land somewhere.
+
+**Falsifiers / mind-changers:**
+
+- **One run is a dramatic outlier** (F1 ≥0.10 different from the other 5, or model-positive count ≥10 different from the other 5 runs): single-run outlier — investigate (vLLM hot-restart? KV-cache cold? request the model_id and verify it's the same build) before computing the noise floor. Don't average through an outlier.
+- **Flip direction is asymmetric** (e.g., 90% of flips are POS→neg, only 10% the other way): this isn't simple non-determinism, it's *drift*. The vLLM deployment may be doing something stateful between runs — caching, weight-loading order, batch composition. Investigate before adopting noise-floor framing.
+- **Disagreement is uniform across `p_positive`** (no concentration on borderline messages): the noise model isn't "borderline messages flip"; it's something else — possibly numerical noise at the logit level affecting even confidently-classified messages. Implies the published `p_positive` values are less trustworthy than the binary predictions.
+- **All 5 fresh runs disagree with run-0 by significantly more than they disagree with each other**: run-0 was generated under different conditions than the new 5 (despite our intent that they be identical). Audit what changed (model_id? endpoint state? prompt_hash? body content?) before drawing noise conclusions. Treat run-0 as untrusted.
+- **Per-run wall-clock time varies by >2× across the 5 runs**: vLLM is being load-shared or batched against other workloads in ways that may correlate with the determinism story. Note in the results.
+
+### Results *(commit this block after running)*
+
+*(To be appended after the runs complete and the analysis script lands.)*
+
+---
+
 ## 2026-05-02: Depth sweep refinement — fill in {3,4,5,6,8,10} around the peak
 
 **Question:** Same architectural hypothesis as si-s9y, refined: si-s9y tested {0,1,2,999} and found depth=2 best of those, but only 4 data points (one at 999) don't establish 2 as the actual peak. Is the F1 curve unimodal with a peak between 2 and ~10, or is it bumpier?
