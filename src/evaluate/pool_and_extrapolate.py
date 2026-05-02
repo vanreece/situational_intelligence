@@ -34,7 +34,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-HARNESS_VERSION = "0.1.0"
+HARNESS_VERSION = "0.2.0"  # si-2t4: stratified FN estimation by sample_role
 
 
 def load_jsonl(path: Path) -> list[dict]:
@@ -124,26 +124,89 @@ def evaluate(
     else:
         precision, prec_lo, prec_hi = float("nan"), 0.0, 1.0
 
-    # Extrapolated recall over a random sample of model-negatives
-    sample_labels = [
-        label_by_id[mid]["label"]
-        for mid in model_negative_ids
-        if mid in label_by_id and label_by_id[mid]["label"] in ("positive", "negative")
+    # Stratified recall extrapolation (si-2t4 fix).
+    #
+    # Background on the bug:
+    #   The original v0.1.0 harness counted FNs across ALL labeled items that
+    #   intersected the current model_negative_ids. But the labeled pool was
+    #   constructed in two strata (per the labels file's `sample_role` field):
+    #     - `pool` / `pool_v2` / `pool_*`: exhaustive labeling of SOME classifier's
+    #       model-positives. For ANY OTHER classifier, this stratum is biased
+    #       (enriched for items the classifiers disagree on, hence enriched for
+    #       likely-FN cases).
+    #     - `random_sample`: uniform random sample of SOME classifier's model-
+    #       negatives. This is the unbiased stratum for FN-rate estimation.
+    #
+    # Fix: count direct FNs in the pool stratum (we know the labels exactly),
+    # and extrapolate FNs for the unlabeled remainder using the random_sample
+    # stratum's FN-rate. Total FN = pool_direct_FN + extrapolated_unsampled_FN.
+    # If a labels file has no sample_role, treat all labels as random_sample
+    # (legacy behavior; matches v0.1.0 in that limit).
+    pool_roles_prefixes = ("pool",)  # matches "pool", "pool_v2", "pool_relaxed_cap"
+    random_role = "random_sample"
+
+    def is_pool(role: str | None) -> bool:
+        return role is not None and any(role.startswith(p) for p in pool_roles_prefixes)
+
+    # Direct FN count: positives in the pool stratum that are model-negatives
+    pool_fn = 0
+    pool_labeled_negatives_in_model_neg = 0  # for diagnostics
+    pool_role_present = False
+    for lab in labels:
+        role = lab.get("sample_role")
+        if not is_pool(role):
+            continue
+        pool_role_present = True
+        if lab["id"] not in model_negative_ids:
+            continue
+        if lab["label"] == "positive":
+            pool_fn += 1
+        elif lab["label"] == "negative":
+            pool_labeled_negatives_in_model_neg += 1
+
+    # Random-sample FN rate
+    random_sample_labels = [
+        lab["label"]
+        for lab in labels
+        if lab.get("sample_role") == random_role
+        and lab["id"] in model_negative_ids
+        and lab["label"] in ("positive", "negative")
     ]
-    sample_n = len(sample_labels)
-    sample_pos = sum(1 for v in sample_labels if v == "positive")
+    random_role_present = len(random_sample_labels) > 0
+
+    # Legacy fallback: if NO sample_role metadata is present, treat all labeled
+    # model-negatives as random_sample (matches v0.1.0 behavior).
+    if not pool_role_present and not random_role_present:
+        random_sample_labels = [
+            label_by_id[mid]["label"]
+            for mid in model_negative_ids
+            if mid in label_by_id and label_by_id[mid]["label"] in ("positive", "negative")
+        ]
+
+    sample_n = len(random_sample_labels)
+    sample_pos = sum(1 for v in random_sample_labels if v == "positive")
     if sample_n > 0:
         fn_rate = sample_pos / sample_n
         fn_lo, fn_hi = wilson_interval(sample_pos, sample_n)
     else:
-        fn_rate, fn_lo, fn_hi = float("nan"), 0.0, 1.0
+        fn_rate, fn_lo, fn_hi = 0.0, 0.0, 1.0  # if no random sample, assume 0 unsampled FN (conservative for recall but at least defined)
 
+    # Items in model_negatives that have NO label at all = unlabeled remainder
     n_model_negatives = len(model_negative_ids)
-    estimated_total_fn = fn_rate * n_model_negatives if not math.isnan(fn_rate) else float("nan")
-    if not math.isnan(precision) and not math.isnan(fn_rate) and (tp + estimated_total_fn) > 0:
+    n_labeled_model_negatives = sum(
+        1 for mid in model_negative_ids
+        if mid in label_by_id and label_by_id[mid]["label"] in ("positive", "negative", "unsure")
+    )
+    n_unsampled_model_negatives = n_model_negatives - n_labeled_model_negatives
+
+    extrapolated_unsampled_fn = fn_rate * n_unsampled_model_negatives
+    estimated_total_fn = pool_fn + extrapolated_unsampled_fn
+
+    if not math.isnan(precision) and (tp + estimated_total_fn) > 0:
         recall = tp / (tp + estimated_total_fn)
-        recall_lo = tp / (tp + fn_hi * n_model_negatives) if fn_hi > 0 else 1.0
-        recall_hi = tp / (tp + fn_lo * n_model_negatives) if fn_lo > 0 else 1.0
+        # CIs on recall now compose: pool_fn is exact (no uncertainty), random sample fn_rate has Wilson CI
+        recall_lo = tp / (tp + pool_fn + fn_hi * n_unsampled_model_negatives) if (tp + pool_fn + fn_hi * n_unsampled_model_negatives) > 0 else 1.0
+        recall_hi = tp / (tp + pool_fn + fn_lo * n_unsampled_model_negatives) if (tp + pool_fn + fn_lo * n_unsampled_model_negatives) > 0 else 1.0
         f1 = f1_score(precision, recall)
     else:
         recall, recall_lo, recall_hi, f1 = float("nan"), 0.0, 1.0, float("nan")
@@ -204,11 +267,19 @@ def evaluate(
             "wilson_95_upper": round(prec_hi, 4),
         },
         "recall_extrapolated": {
+            "stratification": {
+                "pool_role_present": pool_role_present,
+                "random_role_present": random_role_present,
+                "n_labeled_model_negatives": n_labeled_model_negatives,
+                "n_unsampled_model_negatives": n_unsampled_model_negatives,
+            },
+            "pool_direct_fn": pool_fn,
             "random_sample_size": sample_n,
             "random_sample_positives": sample_pos,
-            "fn_rate_in_negatives": _round_or_nan(fn_rate),
+            "fn_rate_in_unsampled": _round_or_nan(fn_rate),
             "fn_rate_wilson_95_lower": round(fn_lo, 4),
             "fn_rate_wilson_95_upper": round(fn_hi, 4),
+            "extrapolated_unsampled_fn": _round_or_nan(extrapolated_unsampled_fn),
             "estimated_total_fn": _round_or_nan(estimated_total_fn),
             "recall": _round_or_nan(recall),
             "recall_95_lower": round(recall_lo, 4),
