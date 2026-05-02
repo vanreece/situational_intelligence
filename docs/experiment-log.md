@@ -61,6 +61,121 @@ Negative results compound as much as positive ones. Skipping the pre-reg block i
 
 ---
 
+## 2026-05-02: Sharpen `schedule_change_announcement` rubric (v2)
+
+**Question:** Does a sharper rubric — one that takes explicit positions on the rubric-ambiguous boundary cases identified by si-pfo and si-clz — close the F1 gap toward the 0.65 promotion threshold? Specifically, does shifting the rubric to *exclude* vote-failure rerolls and vote-mechanic adjustments (which are normal release process, not schedule changes) improve detector quality from a *senior operator's* perspective?
+
+**Beads issues:** si-d6m (run), si-q9m (pre-reg). `discovered-from: si-qhz`. Blocked-by: si-q9m until pre-reg lands.
+
+### Pre-registration *(commit this block before running)*
+
+**Strategic framing — what should "schedule change" mean to the system's user?**
+
+The architectural North Star is *situational intelligence for senior operators running complex multi-vendor programs*. A senior TPM watching this kind of stream wants to know about things that **change their planning picture**: a release will or won't happen on the previously-stated date; a feature is moved to a different version; the team is rethinking release cadence. They do *not* want to be paged on every standard release-process event.
+
+The v1 rubric was permissive about "we'll re-roll" cases because the surface phrasing matched "schedule change announcement." But empirically (si-pfo, si-clz):
+- 5 of the 12 stable-TPs at depth=2 are vote-failure rerolls of *patch* releases (Op-3, Op-4, Op-7, Op-10, Op-11). These are standard process — vote fails on a regression, team fixes it, re-rolls. A senior operator already assumes this happens; informing them of every reroll is noise.
+- The substrate work (si-clz) showed the cheap-tier *needs* the quoted thread context to disambiguate "we'll re-roll" as schedule-change-vs-routine. A sharper rubric that defines reroll-as-routine removes the disambiguation burden — the cheap-tier doesn't need to make a context-dependent call.
+
+**The v2 rubric (frozen — must commit before any re-label/re-run):**
+
+```
+You are reviewing a single message from the Apache Cassandra developer mailing list (dev@cassandra.apache.org). Determine whether the message announces, proposes, or implies a change to a previously-stated date or version target for a release, milestone, or planned work.
+
+The change must affect a substantive deliverable (a release date, a feature target version, a release cadence). Procedural mechanics around an in-flight release process — vote retries, vote-period adjustments, +1/-1 votes — are NOT schedule changes; they are the standard release process executing normally.
+
+POSITIVE — the author IS announcing/proposing/implying a substantive schedule change:
+- Explicit date changes ("I propose postponing release of 1.2.17 until next week")
+- Version target shifts ("we're planning to move to file-based hint storage in 3.0", "it's too late for a schema change in 2.1")
+- Release cadence proposals ("I'd love it if we could modify the C* release cycle to 4 months")
+- Acknowledgments that a previously-stated timeline will not be met ("we still have a lot to do before X")
+- Setting a new target date when a previous expectation existed
+- Re-rolls that introduce a NEW version not previously planned (e.g., "let's do a 1.2.18" when 1.2.17 was the last announced)
+
+NEGATIVE — these are NOT schedule changes:
+- Vote-failure rerolls of an already-planned release ("vote closed; we'll re-roll once X is fixed") — the release was always planned to happen when the vote passed; one failed vote attempt is procedural, not a schedule change. The release is still in-flight on the same broad schedule.
+- Vote-period adjustments ("I'll shorten the vote period to 48h", "extending the vote 24 more hours") — mechanic, not date.
+- +1 / -1 votes by themselves, even when the parent vote announcement is in the thread — the vote reply is procedural.
+- Discussion of current schedules without proposing changes ("X is on track")
+- Initial schedule announcements when no prior expectation existed
+- Pure technical discussion with no schedule reference
+
+CRITICAL — quoted text rule:
+If your evidence for a positive judgment would be a phrase that appears in the QUOTED part of the message (lines starting with > or otherwise marked as from an earlier message in the thread), the answer is NEGATIVE. Judge based on what THIS author wrote in THIS message, not what they are quoting from someone else. The author is referencing the quoted material, not asserting it.
+
+Output strict JSON:
+{
+  "is_schedule_change_announcement": true | false,
+  "evidence_quote": "<verbatim span from THIS author's new content (NOT quoted lines), or null if false>",
+  "rationale": "<one-sentence explanation, including whether the evidence is in new content or quoted material if relevant>"
+}
+```
+
+**Setup:**
+
+- Same 731-message corpus, same 149-item label pool, same model (Qwen3-Coder-30B-A3B-Instruct-gptq-4bit), same temperature=0, same eval harness.
+- Re-label the 149 OpusLabel-v1 items against the v2 rubric. **Re-labeling will be done by Opus via fresh sessions/API** — *not* by the current session, to avoid contamination from this session's analysis. Output: `labels/schedule_change_announcement/cassandra-2014-labels-v2.jsonl`.
+- Implement the v2 rubric as a new prompt variant in the classifier (`v2_strict`) so the prompt-text and prompt-hash are version-controlled. The cheap-tier runs at depth=2 with the v2 prompt against the full 731 messages. Output: `results/detector-runs/schedule_change_announcement/cassandra-2014-predictions-v2.jsonl`.
+- Score: cheap-tier-v2 against OpusLabels-v2 (the apples-to-apples test). Also report cheap-tier-v2 against OpusLabels-v1 for continuity (shows magnitude of rubric shift).
+- Also report Opus-v2 vs Opus-v1 label deltas — how many items did the rubric sharpening flip in Opus's own judgment?
+
+**Frozen artifacts:** the v2 rubric text above, the v2 system prompt (including the CRITICAL quoted-text rule), the eval harness, the corpus, the same 149-item label pool (same IDs), depth=2 envelope.
+
+**Predictions:**
+
+| Test | Predicted result | Rationale |
+|------|------------------|-----------|
+| Opus-v2 positives in the 149-item pool | 6–8 (down from 14 in v1) | v2 reclassifies vote-failure rerolls (Op-3, 4, 7, 10, 11) and vote-period adjustments (Op-12) as NEG. Likely retained: Op-1, Op-2, Op-8, Op-13, Op-14 + possibly Op-9. Op-5, Op-6 stay borderline. |
+| cheap-tier-v2 model-positives in 731 corpus | 8–25 | v2 narrows the positive class substantially. Most current FPs were anchoring-on-quoted-text (the CRITICAL quoted rule should suppress them) or vote-process content (the explicit NEGATIVE list excludes them). |
+| cheap-tier-v2 F1 against Opus-v2 labels | **0.55–0.70** | Big improvement over v1's 0.405. The rubric is sharper and aligns better with what the cheap-tier can recognize. The CRITICAL quoted-text rule may or may not be honored (per si-clz, prompt-level instructions don't always steer Qwen3-Coder-30B). |
+| cheap-tier-v2 precision against Opus-v2 labels | **0.65–0.85** | The narrower positive class plus the quoted-text rule should cut FPs substantially. |
+| cheap-tier-v2 recall against Opus-v2 labels | **0.50–0.75** | The remaining v2-positives are explicit cycle/postponement/version-target language — the cheap-tier should catch most of these in new content alone. Op-6 still hard. |
+| cheap-tier-v2 against Opus-v1 labels | F1 in the 0.20–0.35 range | Apples-to-oranges; included as continuity check. The rubric shift moved the target. |
+
+**Per-OpusPositive predictions:**
+
+| Op | v1 label | v1 cheap@d2 | predicted v2 Opus | predicted v2 cheap | reason |
+|---:|----------|-------------|-------------------|--------------------|--------|
+| Op-1 | POS | POS | POS | POS | LTS-version proposal (cycle architecture) |
+| Op-2 | POS | POS | POS | POS-borderline | references "planned to re-roll for other reasons" |
+| Op-3 | POS | POS | **NEG** | **NEG** | vote-failure reroll, patch version |
+| Op-4 | POS | POS | **NEG** | **NEG** | vote-failure reroll |
+| Op-5 | POS | NEG | **NEG** | NEG | vote-failure reroll (was already a cheap-tier FN; v2 alignment) |
+| Op-6 | POS | NEG | **NEG** | NEG | "wait on 7743" — procedural pause |
+| Op-7 | POS | POS | **NEG** | **NEG** | vote-failure reroll + vote period mechanic |
+| Op-8 | POS | POS | POS | POS | "lower release cycle to 4 month" |
+| Op-9 | POS | POS | POS-borderline | POS | re-roll of 1.2.18 — possibly NEW version |
+| Op-10 | POS | POS | **NEG** | **NEG** | vote-failure reroll Strike 2 |
+| Op-11 | POS | POS | **NEG** | **NEG** | vote-failure reroll |
+| Op-12 | POS | POS | **NEG** | **NEG** | vote period extension (mechanic) |
+| Op-13 | POS | POS | POS | POS-uncertain | "schema change in 2.1, 3.0 plans" — cheap-tier needs to read new content not quoted |
+| Op-14 | POS | POS | POS | POS | "propose postponing 1.2.17" — explicit |
+
+**Predicted Opus-v2 positive set:** Op-1, Op-2, Op-8, Op-9, Op-13, Op-14 = **6** (with Op-9 borderline; could go either way)
+
+**Decision rule:**
+
+- **cheap-tier-v2 F1 against Opus-v2 ≥ 0.65 AND precision ≥ 0.70:** detector promoted to Prototype. The original promotion criteria from si-qhz are met. Move to second-corpus cross-domain check (si-t3l).
+- **0.50 ≤ F1 < 0.65:** rubric direction is right but more sharpening needed. Document specific failure modes; don't promote yet.
+- **F1 < 0.50 with v2:** either the rubric still has issues, or the cheap-tier can't handle the v2 distinctions (e.g., can't tell vote-failure-reroll from substantive-schedule-change). Frontier-tier ceiling check (si-2z6) becomes a higher priority.
+- **v2 doesn't substantially improve over v1's 0.405 F1:** rubric wasn't the gating issue; capability or substrate is. Re-evaluate the substrate work (consider variant B with few-shot examples, or wait for stronger cheap-tier model).
+
+**Falsifiers / mind-changers:**
+
+- **cheap-tier-v2 fires positive on >50% of messages** (>365/731): the prompt is too permissive. Stop, inspect, revise — do not treat as valid eval.
+- **cheap-tier-v2 fires positive on <5%** (<37/731): too restrictive. Inspect by sampling expected positives.
+- **Opus-v2 disagrees with Opus-v1 on >50% of the labeled pool** (>75 items flip): the rubric shift is so large it's effectively a different detector. Consider whether v2 is still the same detector concept; possibly need a clean second pre-reg with a different name.
+- **The CRITICAL quoted-text rule produces no measurable change in cheap-tier behavior** (i.e., cheap-tier-v2 still anchors on quoted text in the 17 anchoring-fix messages from si-clz): same U3 finding as si-clz variant B — prompt-level instructions don't reliably steer Qwen3-Coder-30B. Documents this specifically, escalates si-2z6 priority.
+- **cheap-tier-v2 misses Op-14 (Paulo "propose postponing")**: the explicit explicit-date-change case. If v2 misses this, the prompt has a bug or lost something v1 had. Investigate before drawing rubric conclusions.
+- **cheap-tier-v2 fires positive on Op-12 (vote period extension)**: the explicit NEGATIVE example wasn't honored. Updates U3 unfavorably.
+- **Opus-v2 returns mostly "implies a change without saying it" judgments**: v2 may have *reduced* explicit positives but added an implicit-positive class that's harder to evaluate.
+
+### Results *(commit this block after running)*
+
+*(To be appended after re-labeling and re-running.)*
+
+---
+
 ## 2026-05-02: Substrate first-test — prompt variants over MessageContext separation
 
 **Question:** Does separating `new_content` from `quoted_segments` (per the user's strategic guidance, recorded in memory: `messages_are_not_single_thesis_streams.md`) materially help `schedule_change_announcement`? Is the cheap-tier model's failure mode at depth=2 fundamentally an anchoring-on-quoted-material problem, a rubric-ambiguity problem, or both?
