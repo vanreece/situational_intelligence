@@ -2,66 +2,61 @@
 
 > Per CLAUDE.md "Snapshot transient state at every control edge." This file is overwritten each pause; it captures only the transient mental-model state that wouldn't otherwise survive a fresh session. Durable state lives in git, bd, memory, and `docs/experiment-log.md`.
 
-## Last updated: 2026-05-02 (after si-clz close — substrate first-test)
+## Last updated: 2026-05-02 (after si-rrz close — first detector promoted)
 
 ## Where we are
 
-`schedule_change_announcement` on Cassandra dev@ 2014 has now been through **five** rounds:
+`schedule_change_announcement` on Cassandra dev@ 2014 is **promoted to Prototype**. Operating point: v2 rubric + v2_elided body shape. F1 = 0.769, precision = 1.000, recall (pool) = 0.625.
 
-1. `si-qhz` — F1=0.389. Surfaced rubric ambiguity.
-2. `si-bwo` — body-cap audit. Surfaced model anchoring on quoted material.
-3. `si-s9y` + `si-fnw` — depth sweep. F1 peaks at depth=2 (0.405) above plateau (0.31–0.33).
-4. `si-pfo` — vLLM noise floor at depth=2 is F1 ±0.015. Depth=2 winner is real signal.
-5. **`si-clz`** (just closed) — substrate first-test (prompt variants over MessageContext). **Pre-reg falsifier triggered: F1 regressed under both A (0.217) and B (0.208) vs C (0.405).** The substrate change was too coarse — it fixes 17 anchoring-on-quoted-text false positives but breaks 11 cases where the cheap-tier was using quoted context productively. Variants A and B disagree only 1.2% (within si-pfo noise) → the structural marker in B was effectively invisible to Qwen3-Coder-30B. Detector still not promoted; depth=2 baseline remains the operating point. F1 ceiling for this detector is now even more clearly rubric-bound.
+The full arc this session:
+
+1. `si-pfo` — vLLM noise floor at depth=2 = F1 ±0.015. Depth=2 winner is real signal.
+2. `si-clz` — substrate first-test (variants A, B). F1 regressed to 0.21; substrate too coarse. Detected the anchoring-failure FP cluster.
+3. `si-d6m` — sharpened rubric (v2_strict). F1 = 0.727 against re-labeled OpusLabel-v2. Promotion near-miss (precision 0.571 < 0.70).
+4. `si-rrz` — v2_elided sub-foray (replace quoted line content with `[QUOTED]`). F1 = 0.769, precision = 1.000. **Both promotion criteria met.** Detector promoted.
+
+The user's strategic frame ("forays into infrastructure when needed; don't overbuild") was reinforced by the data: the substrate elision foray solved the precision problem while exposing a *concrete* substrate demand (3 TPs lost to elision all need version-state-at-time tags — first measured demand for si-qdf).
 
 ## My recommended next move
 
-**`si-d6m` (rubric sharpening) is now unambiguously the right next move.** Three rounds of substrate / context / noise work converged: every remaining lever for this detector is in the rubric, not the inputs.
+Three reasonable paths, ordered by my recommendation:
 
-### Concrete starting points for si-d6m (already attached as bd notes)
+**(1) `si-t3l` — harvest a second multi-org corpus and test cross-corpus generalization.** This addresses U1 (the most important primary unknown) directly. The current detector was tuned on Cassandra dev@ 2014 (single-org dominated by Sylvain Lebresne). Whether v2_elided generalizes to a multi-vendor corpus is genuinely unknown and is the headline question for the architecture's value prop. Worth pre-registering predictions about which v2 rubric clauses port and which need per-corpus tuning.
 
-- **Combined rubric stress-test set: ~26 boundary messages + 17 should-be-negatives**, located in two JSON files:
-  - `results/evals/schedule_change_announcement-pfo-noise-floor/summary.json` → `unstable_messages` (15 boundary messages from si-pfo)
-  - `results/evals/schedule_change_announcement-clz-variants/summary.json` → `c_to_ab_flip_diagnostics` filtered by `interpretation` (11 "regression" + 17 "anchoring fix")
-- **The core rubric question is "is `we'll re-roll` a schedule change or vote-process routine?"** Both readings are defensible. Pick one and document.
-  - **If yes (re-roll = schedule change):** keeps current 12 OpusPositives; need a stronger prompt or multi-step pipeline (extract → judge) to help cheap-tier disambiguate without quoted context.
-  - **If no (re-roll = vote routine):** cuts ~6 of the 12 current OpusPositives down to ~6 OpusPositives (the cycle-architecture and explicit-postponement cases). Smaller positive class, but tighter.
-- **Single-run scorecards work** (noise floor ±0.015 from si-pfo). No multi-run aggregation needed.
-- **Re-evaluate at zero inference cost:** si-d6m can re-label the existing 149 items against a v2 rubric and re-score using the existing run-0 prediction file. Only re-run inference if the *prompt* changes.
+**(2) `si-qdf` (typed-tag extraction) — recover the 3 TPs lost to v2_elided.** Now has a concrete success metric: recovers Op-9, Shuler-1.2.18-question, Ellis-1.2.17-takedown without introducing new FPs. Demonstrates a substrate piece earning its keep against measured demand. Smaller scope than si-t3l, more localized signal.
 
-### Substrate state (don't pick these up next)
+**(3) `si-2t4` — fix the eval harness stratification bug.** Just promoted to P2. Important methodology fix. Not value-creating on its own but unblocks honest recall reporting on future detectors.
 
-- **si-jl0** (cross-thread author context) — idea, not promoted by si-clz. The data didn't surface demand for it.
-- **si-qdf** (typed tags — JIRA refs, version markers) — idea. Op-6 still motivates it but only marginally; defer until a detector demands it.
-- **si-r6h** (umbrella MessageContext substrate) — idea. Re-visit only after 2-3 detectors have each demanded one specific piece.
+My read: **(1) si-t3l** is the higher-leverage move. The architecture has now produced one promotable detector through a clean experimental loop. The next question that actually matters strategically is whether any of this generalizes. (2) and (3) are both reasonable but more incremental.
 
-The user's framing from this session is now memory-resident (`messages_are_not_single_thesis_streams.md`): substrate forays add what the detector demonstrably lacks; they don't strip what it's quietly using. The si-clz data validates this.
+## Open questions worth a future session
 
-## Open question worth a future session
-
-**Variant B's null result is a U3 update.** At Qwen3-Coder-30B scale, structural in-prompt instructions about context provenance don't reliably steer behavior. A frontier-tier ceiling check (si-2z6) on variant B specifically would tell us if the cost-tier hierarchy assumption holds for *this kind* of substrate steering, or if the marker would be honored by a stronger model. Worth filing as a sub-question of si-2z6 if/when that gets picked up.
+- **Does v2_elided's quoted-line elision generalize to other detectors?** Or is "elide quoted material" specific to detectors with strong-signal anchoring failures? Worth testing on the next detector (whichever you pick).
+- **Does the v2_strict heavy-rubric prompt design generalize?** v2's 1,700+ chars of explicit category lists and examples reliably steered the cheap-tier here. Whether the same structure works for `vendor_silence`, `risk_escalation_language`, etc., is open.
+- **Is the cycle-proposal phrase failure mode a one-off or a class?** The 3 v2_strict FPs that survived the CRITICAL quoted-text rule all anchored on Michael Kjellman's TL;DR. v2_elided fixed all 3 structurally. But: are there OTHER strong-signal phrases in OTHER threads that would still anchor incorrectly? The cycle thread is one of the highest-density schedule discussions; other threads may not stress-test the same way.
 
 ## Environment notes
 
-- **Homelab:** rock-solid across the session (255–256s wall-clock per 731-message run, ~0.3% transient errors).
-- **Two deterministic vLLM/parsing failures uncovered and fixed in commit `1f9cdf7`:**
-  - vLLM guided_json occasionally truncates the closing `}` even with `finish_reason=stop` (Op-10 in variant B). Defensive parse repair in `parse_message_content` now appends `}` or `"}` and retries.
-  - `MAX_BODY_CHARS` budget wasn't bounding `new_content` in variants A and B; one 93K-char body (pasted CQL log) hit HTTP 400. Now bounded.
-- **Corpus path gotcha:** `--corpus-dir` needs to be `data/processed/apache/dev@cassandra.apache.org`, not the parent.
-- **`python` is not on PATH; use `python3`** in shell scripts.
+- Homelab: stable across the session (255–273s wall-clock per 731-message run; ~0.3% transient errors).
+- Two deterministic vLLM/parsing failures uncovered and fixed during si-clz (commit `1f9cdf7`).
+- Corpus path gotcha: `--corpus-dir` needs `data/processed/apache/dev@cassandra.apache.org`.
+- `python3` not `python` in shell scripts.
+- 5 prompt variants now in classifier: `current_baseline`, `new_only`, `new_with_marked_quoted`, `v2_strict`, `v2_elided`. v2_elided is the operating point for `schedule_change_announcement`.
 
 ## Git state
 
-- 11 local commits ahead of `origin/main`. **User said they'll handle pushes.**
+- 16 local commits ahead of `origin/main`. **User said they'll handle pushes.**
 - Two untracked tarball/zip files (backups), leaving them alone.
 - Working tree otherwise clean.
 
 ## bd state
 
-- 9 ready issues; si-d6m at the top (P2). 0 in_progress, 0 blocked.
-- New idea-stage substrate issues filed this session: si-1lz (closed, parser), si-71f (closed, pre-reg), si-clz (closed, run); si-jl0, si-qdf, si-r6h still open as ideas.
+- 9 ready issues; new top of P2: si-t3l, si-jl0, si-qdf, si-2t4 (newly promoted to P2), si-2z6, si-z0a, si-kxh.
+- 0 in_progress, 0 blocked.
+- Closed this session: si-pfo, si-clz, si-1lz, si-71f, si-d6m, si-rrz, si-3mg, si-q9m, si-dwi.
 
 ## Memory updates this session
 
-- `labels_are_opus_generated.md` — labels are Opus-generated, not user-verified. Use OpusPositive/Negative/Unsure. Never call them "verified" or "ground truth."
-- `messages_are_not_single_thesis_streams.md` — strategic framing on substrate work; refined twice with si-clz empirical findings.
+- `labels_are_opus_generated.md` — terminology + epistemic framing for labels
+- `messages_are_not_single_thesis_streams.md` — substrate-demand finding now empirically grounded (si-rrz)
+- `local_temporal_context.md` — heavy structured prompts steer cheap-tier; structural elision beats prompt instructions for anchoring failures
