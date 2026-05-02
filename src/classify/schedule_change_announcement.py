@@ -167,8 +167,20 @@ def extract_p_positive(response: dict, prediction: bool) -> tuple[float, dict]:
 
 
 def parse_message_content(response: dict) -> dict:
+    """Parse the JSON content, tolerating markdown code fences.
+
+    vLLM's guided_json is best-effort; on some inputs the model still emits
+    ```json ... ``` despite the schema constraint. Strip fences defensively.
+    """
     msg = response["choices"][0]["message"]["content"]
-    return json.loads(msg)
+    s = msg.strip()
+    if s.startswith("```"):
+        first_newline = s.find("\n")
+        if first_newline != -1:
+            s = s[first_newline + 1 :]
+        if s.endswith("```"):
+            s = s[: -3].rstrip()
+    return json.loads(s)
 
 
 def classify_one(message: dict) -> dict:
