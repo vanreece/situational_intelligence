@@ -2,6 +2,8 @@
 
 Running list of detector ideas, with status tracking. The catalog is intentionally messy and additive — bad ideas stay here marked as "tested, didn't generalize" so we don't re-derive them. Good ideas graduate to production status.
 
+> **Catalog vs Beads.** This file is the canonical *typology* of detectors — what a given detector asks, what evidence it consumes, where we expect it to generalize. *Runs* of detectors (pre-registrations, experiments, calibration data) are tracked as Beads issues with edges back to `experiment-log.md` entries. Don't double-bookkeep run status here; query bd for "what's currently in flight on detector X."
+
 ## Status taxonomy
 
 - **Idea** — described but not implemented

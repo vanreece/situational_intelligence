@@ -18,7 +18,9 @@ The architecture is platform-shaped because that's the right architecture, but w
 
 ### Not a dependency graph manager for agents
 
-Beads exists. Beads is good. We are not building Beads. The persistence model that fits exploration work is logs, not graphs. The persistence model that fits operational work is continuously-reconstructed dependency graphs from heterogeneous sources — a different problem from what Beads solves. Don't let the structural similarity confuse the use cases.
+Beads exists. Beads is good. We are not *building* Beads — the persistence model that fits operational work is continuously-reconstructed dependency graphs from heterogeneous sources, a different problem from what Beads solves. Don't let the structural similarity confuse the use cases.
+
+(Update 2026-05-02: we now *use* Beads to track our own engineering and experiment wavefront. The earlier "logs not graphs" framing was right about *observations* — those still belong in `experiment-log.md` — but missed that *candidate experiments and their prerequisites* are graph-shaped. See `CLAUDE.md` "Beads holds intent; markdown holds record" for the boundary.)
 
 ### Not a chatbot UI for project data
 

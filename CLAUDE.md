@@ -63,6 +63,9 @@ results/                 Outputs from experiments
   briefings/             Generated briefings against datasets
   detector-runs/         Per-detector outputs with provenance
   evals/                 Calibration scorecards
+
+.beads/                  Beads issue tracker state (Dolt-backed, JSONL-exported)
+AGENTS.md                Bd-installed agent instructions (see CLAUDE.md for project-specific overrides)
 ```
 
 ## Working agreements with Claude Code
@@ -75,15 +78,23 @@ results/                 Outputs from experiments
 - **Pre-register experiments before running them.** Each `experiment-log.md` entry is committed in two stages: the **Pre-registration** block (Setup, Prediction, Decision rule, Falsifiers) commits *before* the experiment runs; **Results** commit afterward. The git timestamp on the pre-reg commit is the receipt that we didn't move the goalposts. Wanting to skip the pre-reg block is the strongest signal that we're rationalizing — that's the experiment most worth pre-registering.
 - **The direction log is the user's voice.** `docs/direction-log.md` captures strategic guidance, decisions, and redirections from the user. Read it for context, never edit/summarize/condense/move its contents, and don't fold it into other docs. When you want to surface analysis, use conversation or `experiment-log.md`.
 - **Don't merge classification and extraction into one pass** even when the latest model could do both. The architectural separation is the moat.
-- **No cargo-cult dependency graphs.** Beads is great for coding-agent workflows where the plan is durable. Exploration work is OODA-shaped: the plan is mutable, the observations are durable. Use logs, not graphs, until a graph earns its place.
+- **Beads holds intent; markdown holds record.** `bd` (Beads) tracks candidate experiments, engineering prerequisites, and the dependency lattice between them — the *expanding wavefront* of work we know about. Pre-registrations, observations, surprises, conclusions, and the user's strategic direction stay in the markdown logs (`docs/experiment-log.md`, `docs/direction-log.md`, `docs/goals.md`). bd captures *what we might do and what depends on what*; markdown captures *what we found and what we believe*. Don't fold one into the other.
+- **Pre-registration is its own bd issue, not just a status on the experiment issue.** Each experiment has a precursor `Pre-register: <experiment>` issue that closes when the pre-reg block is committed to `experiment-log.md`. The Run issue is blocked-by the Pre-register issue, so structurally it cannot become ready until the pre-reg lands. The closing note on the Pre-register issue carries the commit hash as the receipt — that's the structural enforcement of the two-commit pre-reg discipline.
+- **Use `bd ready` at session start to surface the wavefront, but don't just pick "any" ready node.** The graph supports cost-aware prioritization: `bd dep tree <id>` shows upstream cost; `bd blocked` shows downstream impact. The right pick is usually a ready node whose closure unblocks the most downstream work, or whose unresolved upstream is cheap.
+- **Idea-stage issues with under-specified inputs are first-class.** When an experiment surfaces a follow-up that depends on something we haven't built or decided yet, record both — the candidate experiment AND the unresolved prerequisite — as `idea`-status bd issues with `discovered-from` edges. The wavefront accumulates with provenance; staleness becomes a queryable triage signal rather than a buried bullet in `Next` sections.
+- **Reconciling with bd-installed conventions.** The bd integration block at the bottom of this file (between `<!-- BEGIN BEADS INTEGRATION -->` markers) is bd-managed and may be regenerated. Where its prescriptions conflict with this project's discipline, the working agreements above win:
+  - **`TaskCreate` is fine** for session-internal task tracking — it's ephemeral, orthogonal to bd's cross-session work. bd holds durable work; `TaskCreate` holds within-session organization.
+  - **Auto memory at `~/.claude/projects/-home-vanreece-situational-intelligence/memory/` continues to apply** — these are cross-conversation user/project/reference facts, not work items, and don't fit bd's issue shape.
+  - **Do not push to remote without explicit user instruction.** bd's mandatory-push rule is overridden by our general project discipline. Push when the user asks, not automatically.
 
 ## Reading order for new sessions
 
 1. This file (CLAUDE.md)
-2. `docs/direction-log.md` — recent strategic guidance from the user (read; do not edit)
-3. `docs/goals.md` — what we're trying to learn right now
-4. `docs/experiment-log.md` — what was tried recently
-5. Whatever specific doc is relevant to the current task
+2. `bd ready` — the current wavefront of unblocked work; `bd blocked` for what's gated and on what
+3. `docs/direction-log.md` — recent strategic guidance from the user (read; do not edit)
+4. `docs/goals.md` — what we're trying to learn right now
+5. `docs/experiment-log.md` — what was tried recently
+6. Whatever specific doc is relevant to the current task
 
 ## Known unknowns
 
