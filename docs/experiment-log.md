@@ -61,6 +61,55 @@ Negative results compound as much as positive ones. Skipping the pre-reg block i
 
 ---
 
+## 2026-05-02: Depth sweep refinement — fill in {3,4,5,6,8,10} around the peak
+
+**Question:** Same architectural hypothesis as si-s9y, refined: si-s9y tested {0,1,2,999} and found depth=2 best of those, but only 4 data points (one at 999) don't establish 2 as the actual peak. Is the F1 curve unimodal with a peak between 2 and ~10, or is it bumpier?
+
+**Beads issues:** si-fnw, `discovered-from: si-s9y`.
+
+### Pre-registration *(commit this block before running)*
+
+**Setup:**
+
+- Same 731-message corpus, same prompt (hash `170dcaf6fa91613b`), same model, same labels file (149 items).
+- Sweep `quote_depth ∈ {3, 4, 5, 6, 8, 10}`. Combined with the existing four runs at {0, 1, 2, 999}, this gives a 10-point curve over the realistic depth range for email threads in this corpus.
+- Same eval harness, same comparison code (`src/evaluate/compare_depth_sweep.py` already handles arbitrary depths via glob).
+
+**Frozen artifacts:** all of si-s9y's frozen artifacts carry over (extract_at_depth semantics, prompt, labels). The only new commitment is the set of depths to test.
+
+**Prediction:**
+
+The si-s9y curve was 0.13 → 0.24 → 0.41 → 0.31 (depths 0, 1, 2, 999). The slope from 1→2 is large (+0.16) and 2→999 is negative (-0.10). If the function is unimodal, the actual peak is somewhere in [2, 999]. My prior:
+
+| depth | predicted F1 | rationale |
+|------:|-------------:|-----------|
+| 3 | 0.42 – 0.48 | Modest improvement on depth=2; one more level of context for references |
+| 4 | 0.40 – 0.48 | Similar to 3, possibly slightly better if grandparent's parent is informative |
+| 5 | 0.36 – 0.44 | Beginning to decline as quoted noise outweighs context value |
+| 6 | 0.33 – 0.42 | Most threads in this corpus have ≤6 levels, so the marginal new content is sparse |
+| 8 | 0.30 – 0.38 | Approaching depth=999 territory |
+| 10 | 0.28 – 0.36 | Effectively depth=999 for this corpus (few threads exceed 10 levels) |
+
+**Best-depth prediction: depth=3 or depth=4 wins F1**, with the peak F1 in the range 0.42–0.48 (a 0.01–0.07 improvement over depth=2).
+
+**Decision rule:**
+
+- **A depth in {3, 4, 5} wins F1 by ≥0.05 over depth=2:** clear new peak. Adopt that depth as the default for `schedule_change_announcement`. Update `local_temporal_context.md` with the peak.
+- **Max F1 in {3,4,5,6,8,10} is within ±0.05 of F1=0.405 (depth=2):** depth=2 is on a plateau; pick the simplest depth in the plateau (smaller is better for inference cost). The exact peak is within noise.
+- **F1 is non-monotonic** (e.g., depth=4 wins but depth=5 worse than depth=8): genuine surprise. The function isn't unimodal, which means the "more context = monotonically more/less recall" mental model is wrong. Investigate before drawing conclusions.
+
+**Falsifiers / mind-changers:**
+
+- **Any depth produces F1 > 0.55 (substantially above the depth=2 winner):** great if true, but would suggest si-s9y's prediction range was way off. Verify the comparison harness isn't double-counting or mis-extrapolating before celebrating.
+- **F1 oscillates across adjacent depths by >0.10** (e.g., 3→0.45, 4→0.30, 5→0.45): model behavior on this detector is unstable in a way that makes "best depth" ill-defined. The vLLM non-determinism floor (si-pfo) is then implicated more strongly.
+- **F1 at depths 8 and 10 are both higher than depth=2:** the function is multi-modal, and there's a high-context peak we missed. Investigate.
+
+### Results *(commit this block after running)*
+
+*(To be filled in after the six runs land. si-fnw closes with a pointer to the Results commit.)*
+
+---
+
 ## 2026-05-02: Depth sweep — local temporal context as a detector parameter
 
 **Question:** Does explicitly controlling the model's local temporal context (quote depth in linear thread) recover signal lost to the quoted-vs-new-content confusion surfaced in si-qhz and si-bwo? Architectural hypothesis test, not a U-number primary unknown — but downstream of U3 if the answer is depth-dependent.
