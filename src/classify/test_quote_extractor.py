@@ -5,7 +5,7 @@ Run: python -m src.classify.test_quote_extractor
 
 from __future__ import annotations
 
-from src.classify.quote_extractor import extract_at_depth, extract_message_context, quote_depth, is_attribution
+from src.classify.quote_extractor import extract_at_depth, extract_message_context, elide_quoted_lines, quote_depth, is_attribution
 
 
 def assert_eq(actual, expected, msg=""):
@@ -225,6 +225,52 @@ def test_message_context_empty():
     assert ctx == {"new_content": "", "quoted_segments": [], "attribution_lines": [], "signature": None}
 
 
+def test_elide_quoted_lines_basic():
+    body = """+1 to the proposal.
+
+On Mon wrote:
+> Parent says X
+> > Grandparent says Y
+"""
+    out = elide_quoted_lines(body, max_depth=2)
+    assert "+1 to the proposal." in out
+    assert "On Mon wrote:" in out
+    assert "Parent says X" not in out, "depth-1 content should be elided"
+    assert "Grandparent says Y" not in out, "depth-2 content should be elided"
+    assert "[QUOTED]" in out, "marker should appear"
+    # Should have two [QUOTED] markers (one per quoted line)
+    assert out.count("[QUOTED]") == 2, f"expected 2 markers, got: {out!r}"
+
+
+def test_elide_quoted_lines_preserves_depth_prefix():
+    body = """Reply.
+> Parent.
+> > Grandparent.
+"""
+    out = elide_quoted_lines(body, max_depth=2)
+    # depth-1 line should be "> [QUOTED]"; depth-2 line should be "> > [QUOTED]"
+    assert "> [QUOTED]" in out
+    assert "> > [QUOTED]" in out
+
+
+def test_elide_drops_lines_beyond_max_depth():
+    body = """Reply.
+> Parent.
+> > Grandparent.
+> > > GreatGrandparent.
+"""
+    out = elide_quoted_lines(body, max_depth=2)
+    # depth-3 line should be dropped entirely (matches extract_at_depth semantics)
+    assert out.count("[QUOTED]") == 2  # only depth-1 and depth-2 lines kept
+
+
+def test_elide_no_quotes():
+    body = "Just new content.\nLine 2."
+    out = elide_quoted_lines(body)
+    assert "[QUOTED]" not in out
+    assert "Just new content." in out and "Line 2." in out
+
+
 def main():
     tests = [
         ("quote_depth basic", test_quote_depth),
@@ -244,6 +290,10 @@ def main():
         ("MessageContext signature with no trailing space", test_message_context_signature_dash_dash_no_space),
         ("MessageContext wrapped multi-line attribution", test_message_context_wrapped_attribution),
         ("MessageContext empty body", test_message_context_empty),
+        ("elide_quoted_lines basic", test_elide_quoted_lines_basic),
+        ("elide preserves depth prefix", test_elide_quoted_lines_preserves_depth_prefix),
+        ("elide drops lines beyond max_depth", test_elide_drops_lines_beyond_max_depth),
+        ("elide no quotes", test_elide_no_quotes),
     ]
     failures = []
     for name, fn in tests:

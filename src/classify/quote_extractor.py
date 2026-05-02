@@ -171,6 +171,42 @@ def extract_message_context(body: str) -> dict:
     }
 
 
+def elide_quoted_lines(body: str, max_depth: int = 999, marker: str = "[QUOTED]") -> str:
+    """Replace each quoted line's content with a marker token.
+
+    Used by the si-rrz / v2_elided variant: keeps message structure (line count,
+    attribution lines, signature) intact, but replaces quoted material with
+    `[QUOTED]` so the model can see "this is a thread reply" without being able
+    to anchor on specific quoted phrases.
+
+    Lines with quote_depth > max_depth are dropped entirely (matches the depth
+    filter semantics of extract_at_depth). Lines with 0 < quote_depth <= max_depth
+    have their content replaced with `marker`. Lines with quote_depth == 0
+    pass through unchanged. Signature blocks and attribution lines are unaffected.
+    """
+    if not body:
+        return ""
+    out: list[str] = []
+    blank_run = False
+    for line in body.splitlines():
+        d = quote_depth(line)
+        if d > max_depth:
+            continue
+        if d > 0:
+            replaced = "> " * d + marker
+            out.append(replaced)
+            blank_run = False
+        else:
+            if line.strip():
+                out.append(line)
+                blank_run = False
+            else:
+                if not blank_run and out:
+                    out.append("")
+                blank_run = True
+    return "\n".join(out).rstrip() + ("\n" if out else "")
+
+
 def extract_at_depth(body: str, max_depth: int) -> str:
     """Return body content where every line's quote depth is <= max_depth.
 

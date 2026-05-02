@@ -34,7 +34,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-from src.classify.quote_extractor import extract_at_depth, extract_message_context
+from src.classify.quote_extractor import extract_at_depth, extract_message_context, elide_quoted_lines
 
 ENDPOINT = "http://192.168.100.101:8080/v1/chat/completions"
 MODEL_ID = "btbtyler09/Qwen3-Coder-30B-A3B-Instruct-gptq-4bit"
@@ -134,13 +134,13 @@ GUIDED_JSON_SCHEMA = {
 }
 
 
-PROMPT_VARIANTS = ("current_baseline", "new_only", "new_with_marked_quoted", "v2_strict")
+PROMPT_VARIANTS = ("current_baseline", "new_only", "new_with_marked_quoted", "v2_strict", "v2_elided")
 
 
 def _system_prompt_for(variant: str) -> str:
     if variant == "new_with_marked_quoted":
         return SYSTEM_PROMPT + SYSTEM_PROMPT_MARKED_SUFFIX
-    if variant == "v2_strict":
+    if variant in ("v2_strict", "v2_elided"):
         return SYSTEM_PROMPT_V2
     return SYSTEM_PROMPT
 
@@ -197,6 +197,17 @@ def build_request(message: dict, quote_depth: int | None = None,
         # for evidence purposes — this tests whether the rule reliably steers behavior.
         if quote_depth is not None:
             body = extract_at_depth(body, quote_depth)
+        user_msg = USER_TEMPLATE.format(
+            from_raw=from_raw, subject=subject, date=date,
+            body_text=body[:MAX_BODY_CHARS],
+        )
+    elif prompt_variant == "v2_elided":
+        # v2_elided uses the same v2 system prompt as v2_strict, but each quoted
+        # line's content is replaced with [QUOTED]. Tests whether the v2 precision
+        # shortfall is entirely caused by anchoring on strong quoted text.
+        # quote_depth filters lines beyond depth N; surviving quoted lines get elided.
+        depth = quote_depth if quote_depth is not None else 999
+        body = elide_quoted_lines(body, max_depth=depth)
         user_msg = USER_TEMPLATE.format(
             from_raw=from_raw, subject=subject, date=date,
             body_text=body[:MAX_BODY_CHARS],
