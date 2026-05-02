@@ -34,6 +34,8 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+from src.classify.quote_extractor import extract_at_depth
+
 ENDPOINT = "http://192.168.100.101:8080/v1/chat/completions"
 MODEL_ID = "btbtyler09/Qwen3-Coder-30B-A3B-Instruct-gptq-4bit"
 
@@ -94,12 +96,23 @@ MAX_BODY_CHARS = 60_000  # was 8000; bumped after si-qhz token-usage audit showe
                          # ~8K headroom for system prompt + the 400-tok completion budget.
                          # 100K chars hit the 32K context limit on a 92K-char message.
 
-def build_request(message: dict) -> dict:
+def build_request(message: dict, quote_depth: int | None = None) -> dict:
+    """Build the chat-completions payload.
+
+    If quote_depth is None, the body is passed through as-is (legacy behavior).
+    If quote_depth is an int, the body is filtered to lines whose quote-depth
+    is <= quote_depth before truncation. This is per docs/experiment-log.md
+    si-s9y depth-sweep entry — the sweep parameter, not part of the frozen
+    pre-reg of si-qhz.
+    """
+    body = message.get("body_text", "") or ""
+    if quote_depth is not None:
+        body = extract_at_depth(body, quote_depth)
     user_msg = USER_TEMPLATE.format(
         from_raw=message.get("from_raw", "") or "",
         subject=message.get("subject", "") or "",
         date=message.get("date", "") or "",
-        body_text=(message.get("body_text", "") or "")[:MAX_BODY_CHARS],
+        body_text=body[:MAX_BODY_CHARS],
     )
     return {
         "model": MODEL_ID,
@@ -190,8 +203,8 @@ def parse_message_content(response: dict) -> dict:
     return json.loads(s)
 
 
-def classify_one(message: dict) -> dict:
-    payload = build_request(message)
+def classify_one(message: dict, quote_depth: int | None = None) -> dict:
+    payload = build_request(message, quote_depth=quote_depth)
     response = call_endpoint(payload)
     parsed = parse_message_content(response)
     prediction = bool(parsed["is_schedule_change_announcement"])
@@ -204,6 +217,7 @@ def classify_one(message: dict) -> dict:
         "rationale": parsed.get("rationale", ""),
         "model_id": response.get("model") or MODEL_ID,
         "prompt_hash": prompt_hash(),
+        "quote_depth": quote_depth,
         "predicted_at": datetime.now(timezone.utc).isoformat(),
         "logprob_debug": lp_debug,
         "usage": response.get("usage"),
@@ -224,7 +238,7 @@ def already_done_ids(out_path: Path) -> set[str]:
     return done
 
 
-def run(corpus_dir: Path, out_path: Path, limit: int | None = None) -> dict:
+def run(corpus_dir: Path, out_path: Path, limit: int | None = None, quote_depth: int | None = None) -> dict:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     files = sorted(corpus_dir.glob("*.jsonl"))
     done = already_done_ids(out_path)
@@ -241,12 +255,12 @@ def run(corpus_dir: Path, out_path: Path, limit: int | None = None) -> dict:
                     summary["skipped"] += 1
                     continue
                 try:
-                    result = classify_one(msg)
+                    result = classify_one(msg, quote_depth=quote_depth)
                     out.write(json.dumps(result, ensure_ascii=False) + "\n")
                     out.flush()
                     summary["processed"] += 1
                     summary["predictions"].append((msg["id"], result["prediction"], result["p_positive"]))
-                    if summary["processed"] % 25 == 0:
+                    if summary["processed"] % 50 == 0:
                         print(f"  [{summary['processed']}] last id {msg['id']}", file=sys.stderr)
                     if limit and summary["processed"] >= limit:
                         return summary
@@ -261,11 +275,14 @@ def main():
     p.add_argument("--corpus-dir", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--limit", type=int, default=None, help="Stop after N predictions (for smoke testing)")
+    p.add_argument("--quote-depth", type=int, default=None,
+                   help="If set, filter body to lines with quote depth <= N before classifying. "
+                        "Use a large value (e.g. 999) to keep everything explicitly. Default: no filtering.")
     args = p.parse_args()
     print(f"Classifying messages from {args.corpus_dir} -> {args.out}", file=sys.stderr)
-    print(f"Prompt hash: {prompt_hash()}", file=sys.stderr)
+    print(f"Prompt hash: {prompt_hash()}  quote_depth={args.quote_depth}", file=sys.stderr)
     t0 = time.time()
-    summary = run(args.corpus_dir, args.out, limit=args.limit)
+    summary = run(args.corpus_dir, args.out, limit=args.limit, quote_depth=args.quote_depth)
     elapsed = time.time() - t0
     print(f"\nDone in {elapsed:.1f}s. Processed: {summary['processed']}, Skipped: {summary['skipped']}, Errors: {summary['errors']}", file=sys.stderr)
     n_pos = sum(1 for _, pred, _ in summary["predictions"] if pred)
