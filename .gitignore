@@ -34,6 +34,9 @@ credentials.json
 *.log
 logs/
 
+# Orchestrator runtime state (bead-execution failure signals; ephemeral)
+bead-failures/
+
 # Beads / Dolt files (added by bd init)
 .dolt/
 *.db
