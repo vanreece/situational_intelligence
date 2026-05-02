@@ -106,7 +106,54 @@ The si-s9y curve was 0.13 → 0.24 → 0.41 → 0.31 (depths 0, 1, 2, 999). The 
 
 ### Results *(commit this block after running)*
 
-*(To be filled in after the six runs land. si-fnw closes with a pointer to the Results commit.)*
+**Scorecards:** `results/evals/schedule_change_announcement-depth-sweep-refined/scorecard-depth-{0..999}.json`. Full 10-point curve:
+
+| depth | model+ | TP | FP | precision | recall | F1     | Brier |
+|------:|-------:|---:|---:|----------:|-------:|-------:|------:|
+| 0     |  5     |  4 |  1 | 0.800     | 0.073  | 0.134  | 0.070 |
+| 1     | 31     |  8 | 16 | 0.333     | 0.191  | 0.243  | 0.140 |
+| **2** | 41     | 12 | 23 | 0.343     | 0.496  | **0.405** | 0.154 |
+| 3     | 41     | 11 | 26 | 0.297     | 0.371  | 0.330  | 0.183 |
+| 4     | 42     | 11 | 27 | 0.289     | 0.369  | 0.325  | 0.196 |
+| 5     | 44     | 11 | 28 | 0.282     | 0.368  | 0.319  | 0.198 |
+| 6     | 43     | 11 | 27 | 0.289     | 0.366  | 0.323  | 0.187 |
+| 8     | 47     | 11 | 30 | 0.268     | 0.364  | 0.309  | 0.206 |
+| 10    | 43     | 11 | 26 | 0.297     | 0.370  | 0.330  | 0.193 |
+| 999   | 46     | 11 | 29 | 0.275     | 0.364  | 0.314  | 0.199 |
+
+**My pre-registered prediction** (depth=3 or 4 wins F1 by ≤0.07 over depth=2) is **falsified**. depth=2 remains the winner; depths 3 through 999 are remarkably flat at F1 0.31–0.33.
+
+**Observations:**
+
+1. **The curve has two regimes, not one peak.** Sharp rise from depth=0 to depth=2 (F1 0.134 → 0.405), then a flat plateau across all depths 3–999 at F1 0.31–0.33. The transition isn't smooth — it's a step. Depth=2 sits 0.075 above the plateau.
+
+2. **TP count plateaus too:** 12 at depth=2, then 11 at every other depth from 3 to 999. The model identifies essentially the same set of true positives across the entire 3-999 range; what changes is the *false-positive load* (23 → 26-30). More context exposes more quoted material the model anchors on, without finding new TPs to compensate.
+
+3. **Brier monotonically degrades from depth=2 (0.154) through depth=8 (0.206)** then dips slightly. The model gets *less* calibrated as more context is added. Confirms si-s9y's per-(detector, depth) calibration finding — calibration degrades as the model has more material to be over-confident about.
+
+4. **Two transient HTTP errors (depth=6: 2 errors; depth=10: 1 error)** on small-bodied messages. Same pattern as the depth=999 transient in si-s9y. Aggregated across 7,309 inference calls in this sweep, that's a ~0.04% transient error rate — non-issue.
+
+**Surprises:**
+
+1. **The plateau is dead flat.** I predicted F1 would gradually decline from depth=3 onward toward depth=999. Instead it's basically the same number (within noise) for every depth from 3 to 999. This means *adding context past depth=2 produces neither benefit nor cost* in this corpus. The model has saturated its ability to extract signal from the prompt, and additional quoted material is neither helping nor hurting beyond a small precision drag from extra anchor candidates.
+
+2. **The depth=2 advantage is real but marginal.** 0.075 above the plateau is more than one noise floor (si-pfo: ±0.04) but less than two. Without repeating depth=2 multiple times to characterize its variance, I can't rule out that the true mean F1 at depth=2 is closer to ~0.36 and we got a lucky run. **The right next step is si-pfo (quantify vLLM non-determinism) before drawing a sharp depth=2 conclusion.** The qualitative claim ("depth=2 is at least as good as any tested alternative") is robust; the precise F1 at depth=2 is uncertain.
+
+3. **The intuition behind the depth=2 advantage may not be "parent + grandparent."** Looking at the data: at depth=2, TP=12; at every depth from 3 to 999, TP=11. The lone extra TP at depth=2 explains nearly the entire F1 advantage. Without that one item, depth=2 collapses to plateau territory. Need to identify *which* TP is unique to depth=2 to understand whether it's a robust pattern or a quirk.
+
+**Conclusions:**
+
+- **Decision-rule outcome:** "max F1 in the new sweep is more than 0.05 below depth=2's 0.405" — neither the new-peak case nor the plateau case applied as predicted. **Depth=2 remains the recommended envelope** for `schedule_change_announcement` on this corpus, but the recommendation is contingent on the noise-floor being smaller than the depth=2/plateau gap. si-pfo's quantification is now blocking high-confidence claims about this parameter.
+- **Detector still NOT promoted.** F1 0.405 < 0.65 threshold; precision 0.343 < 0.70. The depth-sweep alone won't close that gap — rubric work (si-d6m) is the remaining lever.
+- **The "more context is more signal" intuition fails past depth=2 for this detector.** The model saturates. This is consistent with the local_temporal_context.md memory: optimal envelope is detector-AND-corpus-specific, and the right way to find it is empirical sweep, not theoretical reasoning. But the *shape* of the curve (sharp rise then flat plateau) is itself a useful generalization candidate — possibly true for many reference-heavy detectors over conversational corpora. Worth checking on the next detector.
+- **Updated `local_temporal_context.md` finding** for the rubric work in si-d6m: the right envelope test for future detectors should be a *fast coarse sweep* of just {0, 1, 2, 4, 8} or similar — the marginal value of finer resolution past the obvious plateau is low, and the cost of even a 5-point sweep is ~20 minutes.
+
+**Next:**
+
+- **si-pfo blocks** clean depth-conclusion claims. Run it before any further depth-related decisions.
+- **si-d6m** (rubric sharpening at depth=2) is still the primary path to detector promotion.
+- **Investigate the lone extra TP at depth=2** — which message does the model catch at depth=2 but lose at depth=3? Cheap diagnostic, possibly informative about the boundary.
+- **Update `local_temporal_context.md`** with the curve-shape generalization (sharp rise → plateau) for future detector pre-regs.
 
 ---
 
