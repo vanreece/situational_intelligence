@@ -144,7 +144,90 @@ Each variant gets its own `prompt_hash`. All three predict on the same 731 messa
 
 ### Results *(commit this block after running)*
 
-*(To be appended after the runs complete and the analysis lands.)*
+**Summary:** `results/evals/schedule_change_announcement-clz-variants/summary.json`. Two new runs (variant A and B), 731 predictions each, ~256s wall-clock each. Two deterministic vLLM/parsing failures uncovered and fixed (commit `1f9cdf7`); affected predictions appended manually.
+
+**Scorecards:**
+
+| variant | model+ | TP | FP | Precision | Recall | F1 | Brier |
+|---------|-------:|---:|---:|----------:|-------:|----:|------:|
+| C_baseline (depth=2) | 41 | 12 | 23 | 0.343 | 0.496 | **0.405** | 0.154 |
+| A_new_only | 10 | 6 | 2 | 0.750 | 0.127 | **0.217** | 0.065 |
+| B_marked | 13 | 6 | 4 | 0.600 | 0.126 | **0.208** | 0.073 |
+
+**Pre-registered falsifier "A or B drops F1 by >0.10 vs C" TRIGGERED.** Per the pre-reg: "Inspect failures before drawing substrate conclusions." Done.
+
+**Per-OpusPositive coverage matrix (14 OpusPositives, ✓ = caught):**
+
+| #  | Op | C | A | B | sender / subject | new_content has schedule keyword? |
+|---:|---:|---|---|---|---|:---:|
+| 1  | Op-1  | ✓ | ✗ | ✗ | Marcus / Re: Proposed changes to C* Release Schedule | yes ("until") |
+| 2  | Op-2  | ✓ | ✗ | ✓ | Brandon / Re: [VOTE] 2.1.0-rc7 | yes ("re-roll") |
+| 3  | Op-3  | ✓ | ✗ | ✗ | Aleksey / Re: [VOTE] 2.0.5 | yes ("reroll") |
+| 4  | Op-4  | ✓ | ✓ | ✓ | Sylvain / [VOTE CLOSED] 2.0.10 | yes ("re-roll") |
+| 5  | Op-5  | ✗ | ✗ | ✗ | Sylvain / [VOTE CLOSED] 2.1.1 | yes ("re-roll") |
+| 6  | Op-6  | ✗ | ✗ | ✗ | Sylvain / [VOTE CLOSED] 2.1.0-rc6 | no |
+| 7  | Op-7  | ✓ | ✓ | ✓ | Sylvain / [VOTE CLOSED] 2.0.5 | yes ("shorten") |
+| 8  | Op-8  | ✓ | ✓ | ✓ | Sylvain / Re: Proposed changes to Release Schedule | yes ("release cycle") |
+| 9  | Op-9  | ✓ | ✗ | ✗ | Sylvain / Re: [VOTE PASSED] 1.2.17 | yes ("re-roll") |
+| 10 | Op-10 | ✓ | ✓ | ✓ | Sylvain / [VOTE CLOSED] 2.0.5 (Strike 2) | yes ("restart") |
+| 11 | Op-11 | ✓ | ✗ | ✗ | Sylvain / [VOTE CLOSED] 2.0.8 | yes ("re-roll") |
+| 12 | Op-12 | ✓ | ✓ | ✗ | Sylvain / [VOTE RESURRECTED] 1.2.16 | yes ("extend the vote") |
+| 13 | Op-13 | ✓ | ✗ | ✗ | Jonathan / Hinted Handoff | yes ("too late") |
+| 14 | Op-14 | ✓ | ✓ | ✓ | Paulo / Re: [VOTE] 1.2.17 | yes ("postpone") |
+
+**Pairwise disagreement:**
+
+| pair | disagree | % |
+|------|---------:|---:|
+| A vs C | 35 / 731 | 4.8% |
+| B vs C | 34 / 731 | 4.7% |
+| **A vs B** | **9 / 731** | **1.2%** |
+
+**A vs B is within the si-pfo noise floor of ±0.015 F1 / ~6 message disagreements.** Variants A and B are essentially the same behavior. The structural marker in B did NOT meaningfully steer the cheap-tier model.
+
+**Observations:**
+
+1. **Substrate change has two opposite effects measured separately.** Of the 28 messages that flipped from C-positive to {A,B}-negative under both variants:
+   - **17 were "anchoring fixes"** — C had anchored on text that, under MessageContext extraction, turns out to be **quoted material from earlier in the thread, not the author's actual reply**. Removing the quoted context correctly resolves these to negative. Examples: 4 different replies in a 1.2.15 vote thread all anchored on the quoted phrase "we'll stick to an expedited 24h vote" (originally from Sylvain, quoted in everyone's replies); 5 different replies in the 1.2.16 RESURRECTED thread anchored on "I'm going to propose that we only extend for just 24h more hours". All flipped to negative under A/B; all are OpusNegative or unlabeled. **The si-bwo "model anchors on quoted material" failure mode is real and substrate-fixable.**
+   - **11 were "regressions"** — the new_content does have a schedule keyword, but variants A/B still flipped to negative. The model's interpretation of "re-roll" / "after 3.0" / "release cycle" *changes* when it lacks the surrounding thread context: with context, "re-roll" reads as "the previously-announced schedule is changing"; without context, "re-roll" reads as "we'll execute the standard vote-failure procedure." The keyword alone is rubric-ambiguous; the quoted context disambiguates it as a schedule change *for the cheap-tier*.
+
+2. **Variant B did not honor its instruction.** A and B disagree on only 9 of 731 messages (1.2%, within si-pfo noise). The "judge NEW REPLY only; QUOTED CONTEXT is reference" instruction in the system prompt was effectively ignored — the cheap-tier model treated marked-quoted material the same as no quoted material. **Major U3 finding: structural in-prompt instructions about context provenance do not reliably steer Qwen3-Coder-30B at this prompt design.** A more effective intervention would need to be either heavier (e.g., remove quoted material entirely, like A) or different in kind (e.g., few-shot examples of "this is quoted context — note the author isn't claiming it").
+
+3. **Brier score *improved* under A and B** (0.154 → 0.065 / 0.073). Stripping quoted context made the model more confident in its (smaller) set of positives. Calibration is better when the model has less material to be miscalibrated on, but this is a hollow win when recall has cratered.
+
+4. **Op-13 flipped to negative under both A and B** as half-predicted. The pre-reg's "50/50" prediction landed correctly. Jonathan's actual new_content does say "It's too late for a schema change in 2.1" — schedule-relevant — but the cheap-tier without the quoted "after 3.0" context interpreted "too late" as abstract regret rather than as a schedule statement. The "right for wrong reason" mechanism turns out to be replaced by "wrong for the right reason" under the substrate change. Possibly a worse trade.
+
+5. **Op-2's behavior is the cleanest evidence that B isn't honoring its instruction.** Op-2 is one of the 9 A-vs-B disagreements: A misses, B catches. Brandon's new_content says "I know we were planning to re-roll for other reasons" — schedule-relevant. B catches it; A misses. So B *did* use the quoted context for at least Op-2 (against the instruction), giving Brandon's claim more weight than A's stripped form. But across the rest of the corpus, B and A agree, suggesting B used context only when it was decisive — not in the way the prompt instructed.
+
+**Surprises:**
+
+1. **Variant A's recall (0.13) is much worse than predicted (predicted similar to baseline; actual is one-quarter of baseline).** I underestimated how much the cheap-tier was leaning on quoted context to disambiguate the "re-roll = schedule change" interpretation. The pre-reg prediction "Op-5 flips to TP under A" was wrong — Op-5's new_content "I'll re-roll the artifacts shortly" was supposed to be enough; it wasn't.
+
+2. **Most of the C→FN flips are not the Op-13 anchoring case I focused on, but the broader "model uses quoted context productively to disambiguate keywords" pattern.** The substrate change broke many more cases than the one I diagnosed in advance. The lone-TP framing from si-fnw misled me about where the model was using context — it was using it for many TPs, not just Op-13.
+
+3. **Variants A and B converged.** I expected B to land between A and C — context available but de-weighted. Instead B is closer to A than to either A or C is to anything else in the noise sense. Important U3 evidence that prompt-level instructions don't substitute for actual structural changes (removing material) at this model scale.
+
+4. **The "anchoring fix" set is much larger than expected** — 17 distinct messages where C was firing positive on quoted text. The si-bwo failure mode is more common than I realized, not rarer. The substrate would substantially clean up the precision side of any detector running over conversational data; the question is whether the recall cost is acceptable for a given detector.
+
+**Conclusions:**
+
+- **Decision-rule branch fired:** "A or B drops F1 by >0.10 vs C — something pathological. Inspect failures." The inspection has been done (above). The diagnosis is clear: substrate change is too coarse — it removes both anchoring-failures (good) and productive-uses-of-context (bad). The cheap-tier needs structured context, not less context.
+- **Detector NOT promoted; no substrate piece adopted as default for `schedule_change_announcement`.** Variant C (current_baseline) remains the operating point. F1 = 0.405; the depth=2 finding from si-fnw stands.
+- **The substrate hypothesis is partially validated, partially refined:**
+  - **Validated:** the model does anchor on quoted material in real false-positive cases (17 of them in this corpus). The MessageContext separation is a *real* signal that any future substrate work can use.
+  - **Refined:** stripping quoted context as a treatment is too coarse. The cheap-tier uses context productively to disambiguate; you can't take it away wholesale. The right shape is probably "keep context, but help the model distinguish structural roles" — a stronger version of variant B with examples, or a multi-step pipeline (extract → judge), or a different cut entirely.
+- **Variant B's null result is a U3 update.** Cheap-tier (Qwen3-Coder-30B) doesn't reliably honor structural-role instructions in the system prompt at this design. Future substrate work should default to *removing* irrelevant content rather than *labeling* it, or invest in stronger prompt engineering (few-shot examples).
+- **The user's strategic framing is now empirically supported:** "I don't want to overbuild infrastructure. I want to be able to do forays into adding it smartly when needed to see if it helps solve problems. The thesis of detectors being able to do their thing is predicated on them having enough understanding to detect." Variant A removed too much understanding; variant B failed to add usable structure. The next foray should add what the detector demonstrably lacks (e.g., for Op-6: knowing 7743 is an open JIRA), not strip what it's quietly using.
+- **`si-d6m` (rubric work) is now MORE clearly the gating issue, not less.** The 11 "regressions" cluster on the rubric-ambiguous boundary: is "re-roll" a schedule change or vote-process routine? Substrate didn't resolve this; only rubric work can. The Op-positives analysis already foreshadowed this; si-clz confirms it.
+
+**Next:**
+
+- **Adopt variant C (current_baseline) as the operating point** for any further `schedule_change_announcement` work until si-d6m is done.
+- **The 11 regression messages are the rubric-ambiguity boundary** — combined with the 15 unstable messages from si-pfo, the rubric stress-test set for si-d6m grows to ~26 messages. Any v2 rubric should resolve all of them cleanly. Update si-d6m's notes accordingly.
+- **The 17 "anchoring fix" messages are the FP-side stress-test** — a sharpened rubric (si-d6m) that uses depth=2 should NOT call these positive. If it does, the rubric is still anchoring-permissive and needs further sharpening.
+- **Substrate ideas remain idea-stage; none promoted.** si-jl0 (cross-thread author context), si-qdf (typed tags), si-r6h (umbrella) all remain idea-status. The si-clz data did not produce demand for them — the demand surfaced is for *structural disambiguation that the cheap-tier honors*, which is a different shape than "more context indices."
+- **U3 finding to add to memory:** structural in-prompt instructions about context provenance don't reliably steer Qwen3-Coder-30B at this model scale. Variant B/C disagree only 1.2%, within the noise floor — the marker was effectively invisible to the model.
+- **Open question for a future cheap-tier ceiling check (si-2z6):** does a frontier-tier model honor variant B's instruction better? If yes, variant B might be the right shape *with a stronger model*, which would be a cost-tier hierarchy finding.
 
 ---
 
