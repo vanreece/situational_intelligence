@@ -105,7 +105,74 @@ Negative results compound as much as positive ones. Skipping the pre-reg block i
 
 ### Results *(commit this block after running)*
 
-*(To be appended after the runs complete and the analysis script lands.)*
+**Summary:** `results/evals/schedule_change_announcement-pfo-noise-floor/summary.json`. Six runs at depth=2: run-0 (the existing si-fnw winner) plus 5 fresh reruns each ~256s on the homelab. Wall-clock variance across 5 fresh runs is essentially zero (255–256s, 0.4% spread).
+
+| run | model+ | TP | FP | precision | recall | F1     | Brier |
+|----:|-------:|---:|---:|----------:|-------:|-------:|------:|
+| 0   | 41     | 12 | 23 | 0.343     | 0.496  | 0.405  | 0.154 |
+| 1   | 39     | 12 | 22 | 0.353     | 0.497  | 0.413  | 0.152 |
+| 2   | 38     | 12 | 22 | 0.353     | 0.497  | 0.413  | 0.151 |
+| 3   | 43     | 12 | 24 | 0.333     | 0.494  | 0.398  | 0.155 |
+| 4   | 40     | 12 | 23 | 0.343     | 0.495  | 0.405  | 0.155 |
+| 5   | 41     | 12 | 22 | 0.353     | 0.498  | 0.413  | 0.151 |
+
+**Spreads (max − min across 6 runs):** F1 **0.015** (stddev 0.0061), precision 0.020, recall 0.004, Brier 0.005, model-positives 5.
+
+**Pairwise prediction disagreement (15 pairs):** 4–10 messages out of 731, **0.5%–1.4%** per pair. Mean pairwise Hamming ≈ 6.7/731. Total flips across all 15 pairs: 102 (47 pos→neg, 55 neg→pos, 46.1% / 53.9%) — direction is essentially symmetric.
+
+**Per-message stability:** of 731 messages, 683 are stable-negative (0/6 positive votes), 33 are stable-positive (6/6), and **15 are unstable** (somewhere between 1/6 and 5/6). Borderline-concentration hypothesis is decisively confirmed:
+
+| run-0 p_positive bin | total | stable-neg | stable-pos | unstable | % unstable |
+|----------------------|------:|-----------:|-----------:|---------:|-----------:|
+| [0.0, 0.1) | 676 | 675 | 0 | 1 | 0.1% |
+| [0.1, 0.5) |  14 |   8 | 0 | 6 | 42.9% |
+| [0.5, 0.8) |   6 |   0 | 1 | 5 | 83.3% |
+| [0.8, 1.0) |  35 |   0 | 32 | 3 | 8.6% |
+
+**Pre-reg prediction check:**
+- Pairwise disagreement 1–3% → observed 0.5–1.4% (slightly tighter than predicted).
+- F1 spread 0.04–0.08 → observed **0.015** (substantially tighter than predicted).
+- Borderline concentration → confirmed.
+- Symmetric flip direction → confirmed.
+- No outlier run → confirmed.
+
+**Falsifiers — none triggered:** no outlier run; no asymmetry in flip direction; instability concentrates on borderline (not uniform); run-0 disagrees with the fresh five at the same rate they disagree with each other (5–10 vs 4–10); wall-clock variance trivial.
+
+**Observations:**
+
+1. **TP count is 12 in every single run.** All variance is in FP count (22–24). The model's *true-positive set* is perfectly stable across the 6 runs at depth=2; what wavers is *which marginal NEGATIVE messages get over-flagged*. Recall is functionally deterministic at this depth (the 0.004 recall spread comes from the eval harness's unseeded `random.sample` of model-negatives, not from classifier variation — same labeled pool, same TP set).
+
+2. **The 15 unstable messages are dominated by `[VOTE]` / `[VOTE CLOSED]` / "Release Schedule" subjects.** Almost every unstable message is a release-vote ceremony reply or a thread participant in "Proposed changes to C* Release Schedule" — exactly the boundary territory where the rubric is ambiguous (release votes are *planned steps* in a release process, not *changes* to a schedule, but the model wavers on whether to call them positive). All 7 unstable messages with gold-standard labels are labeled NEGATIVE.
+
+3. **The lone-TP advantage of depth=2 (from si-fnw) is structurally stable, not stochastic.** The Jonathan Ellis "I plan to address this... after 3.0" message — which anchors on quoted Benedict text rather than the actual new reply — fires POSITIVE in all 6 runs. So the si-fnw 0.075 F1 advantage rests on a *deterministic* mechanism at depth=2, not a lucky-roll artifact. The mechanism is fragile to *prompt or context-window changes* (it's the model anchoring on the wrong span), but it is not fragile to vLLM run-to-run noise.
+
+4. **2 of the 33 stable-positive bin messages are still in the unstable set** (high run-0 confidence, but not unanimous). Confidence is a strong but imperfect predictor of stability: most very-confident predictions are stable, but a small fraction of high-confidence positives still flip across runs.
+
+**Surprises:**
+
+1. **F1 spread is much tighter than predicted (0.015 vs predicted 0.04–0.08).** I anchored on the si-s9y observation of "17/731 prediction differences" between two depth-999 runs and assumed similar noise at depth=2. The actual depth=2 noise is ≈3× tighter. Possible explanation: depth=2 messages are *shorter* (less quoted material) and produce more decisive logits, leaving fewer borderline positions for noise to flip. The si-s9y observation may have been a depth-999 phenomenon, not a general noise floor.
+
+2. **The TP set is 100% stable while the FP set wavers.** I expected non-determinism to affect both directions roughly proportionally to base rate. Instead, the model's high-confidence "this IS a schedule change" cases are anchored hard, and only the marginal "could-be-a-schedule-change-or-not" set wavers. This is informative for synthesis-layer design: if downstream decisions only act on the stable-positive set, they're safe from this layer of noise; if they act on the high-confidence-but-not-unanimous bucket (the 2 unstable items in [0.9,1.0)), they need rerun aggregation.
+
+3. **The 15 unstable messages are an almost perfect characterization of the rubric ambiguity boundary.** Without the noise probe, I'd have had to identify these by hand. The non-determinism quantification has incidentally produced the **rubric stress-test set** for si-d6m at zero additional cost: any sharpened rubric that doesn't cleanly resolve these 15 messages hasn't sharpened the right thing.
+
+4. **My pre-analysis hypothesis about the lone-TP message was wrong.** I predicted (in `results/detector-runs/.../si-pfo-reruns/lone-tp-diagnostic.md`) that the Jonathan Ellis quoted-Benedict-anchor message would be a leading flip candidate. It wasn't — it's stable across all 6 runs. The "right answer for the wrong reason" mechanism turns out to be *deterministically wrong* in a useful direction. Updated the diagnostic file accordingly.
+
+**Conclusions:**
+
+- **Decision-rule branch fired:** F1 spread = 0.015 < 0.04. **Adopted noise floor: F1 ±0.015** at this depth/detector/corpus. Conservatively rounded for cross-experiment use: **±0.04 buys high-confidence "this difference is signal" claims; differences ≤0.04 require multi-run scorecards**.
+- **The si-fnw depth=2 conclusion holds with a 5× margin.** Depth=2's 0.075 F1 advantage over the plateau is 5× the measured noise floor — this is genuine signal, not a lucky roll. Update `local_temporal_context.md` accordingly.
+- **si-d6m can proceed at depth=2 without multi-run aggregation.** Single-run scorecards are trustworthy to ±0.015. The rubric work's expected effect size (closing the F1 0.41 → ≥0.65 gap) is far larger than the noise floor.
+- **Recall noise is functionally zero at depth=2.** Precision noise is ±0.02. For experiments that move precision/recall in opposite directions (a common pattern for rubric sharpening), report each separately rather than collapsing to F1, since the noise floors differ.
+- **The architectural commitment to "binary-per-category classifiers" is reinforced.** The detector's TP set is highly stable; the entire variance lives in the rubric-ambiguous boundary. This is exactly the failure mode that binary-per-category isolates cleanly — sharpening one rubric doesn't disturb anything else, and the noise floor is small enough to detect rubric improvements at the resolution we need.
+- **vLLM at temperature=0 with this model is "deterministic enough":** the residual non-determinism (presumably from CUDA op-ordering, batch composition, KV-cache state) affects ~2% of predictions and concentrates on the rubric-ambiguous set. We do not need to investigate vLLM seed semantics or sampling parameter overrides.
+
+**Next:**
+
+- **Unblock si-d6m** (rubric sharpening) — the noise floor is no longer in the way.
+- **Use the 15 unstable messages as the rubric stress-test set for si-d6m.** Any v2 rubric that doesn't cleanly classify all 15 is incomplete. (Filed as a sub-finding within si-d6m rather than a new bd issue, since it's intrinsic to that work.)
+- **Update `local_temporal_context.md` memory** to record: noise floor at depth=2 for this detector/corpus is F1 ±0.015; the si-fnw depth=2 advantage is robustly above it.
+- **Note for synthesis-layer design (out of scope here):** the model's high-confidence positives are stable; downstream consumers of `p_positive` should treat the [0.5, 0.8) band as inherently noisy across reruns, and the [0.9, 1.0) band as ~94% stable. The 2 unstable items in [0.9, 1.0) flag that even high confidence isn't a stability guarantee — a "stability score" might warrant being a separate signal from `p_positive`.
 
 ---
 
