@@ -145,7 +145,36 @@ Negative results compound as much as positive ones. Skipping the pre-reg block i
 
 ### Results *(append per sub-experiment after each completes)*
 
-*(To be appended as the parallel batch lands.)*
+#### si-2t4 — eval harness stratified FN estimation (LANDED, commit `1a23fa4`)
+
+**Bug confirmed and fixed.** The v0.1.0 harness's "random sample of model-negatives" was actually `current_predictions ∩ existing_labels` filtered to model-negatives — i.e., the entire labeled pool, including items that were exhaustive-labels-of-some-other-classifier's-positives (`sample_role=pool*`). For ANY classifier other than the one the labels were originally pooled around, that stratum is biased toward likely-FN cases.
+
+**Fix (v0.2.0):** stratify by `sample_role`. Direct-count FNs in `pool*` strata (no extrapolation needed — we know the labels exactly). Use `random_sample` stratum's FN-rate to extrapolate over the unsampled remainder. `Total FN = pool_direct_fn + (random_sample_fn_rate × n_unsampled_model_negatives)`. Backward compatible: when no `sample_role` present, falls back to legacy behavior with the corrected unsampled-only extrapolation base.
+
+**Verification on real data:**
+
+| comparison | legacy F1 | fixed F1 | legacy recall | fixed recall | matches pool-direct? |
+|------------|----------:|---------:|--------------:|-------------:|:--------------------:|
+| v2_elided vs Opus-v2 | 0.405 | **0.769** | 0.254 | **0.625** | ✓ (was the headline bug) |
+| v2_strict vs Opus-v2 | 0.727 | 0.727 | 1.000 | 1.000 | ✓ (was already correct by coincidence) |
+| v1 baseline vs Opus-v1 | 0.405 | **0.446** | 0.496 | 0.638 | ✓ (legacy under-counted recall here too) |
+
+**Pre-reg accuracy:** decision rule's "fixed estimator on v2_elided produces recall within 0.05 of pool-direct (0.625)" — exact match (0.625). Falsifiers: none triggered. The synthetic test (1.0% base rate, mixed pool + random_sample strata) recovers the unbiased recall (0.40) where the legacy estimator would have reported 0.23.
+
+**Implications:**
+
+- **Historical-baseline correction:** the v1 F1 = 0.405 cited throughout this log is the legacy-biased number. Honest-corrected v1 F1 = 0.446. Past Results blocks are not retroactively edited; this is a forward-going correction. The detector promotion still holds — v2_elided's F1 = 0.769 is well above v1's corrected F1 = 0.446.
+- **Two new tests** (`src/evaluate/test_pool_and_extrapolate.py`): one demonstrates the bias quantitatively (synthetic 1000-item corpus with mixed strata; legacy estimator under-counts recall by ~40%); one verifies legacy fallback for label files without `sample_role`.
+- **Future detectors should always set `sample_role`** when constructing label pools, so the unbiased estimator works without fallback gymnastics.
+- **The unsampled-only extrapolation base is the correct default** even in the no-strata case — extrapolating from labeled items over a base that includes those same labeled items is double-counting. This applies to v0.1.0's behavior on any single-classifier eval too; the corrected v1 baseline is the honest number.
+
+#### si-2z6 — frontier-tier ceiling check (PENDING)
+
+*(Subagent in flight.)*
+
+#### si-qdf — typed-tag first foray (PENDING)
+
+*(Subagent in flight.)*
 
 ---
 
