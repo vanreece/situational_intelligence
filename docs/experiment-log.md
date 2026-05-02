@@ -61,6 +61,59 @@ Negative results compound as much as positive ones. Skipping the pre-reg block i
 
 ---
 
+## 2026-05-02: Depth sweep — local temporal context as a detector parameter
+
+**Question:** Does explicitly controlling the model's local temporal context (quote depth in linear thread) recover signal lost to the quoted-vs-new-content confusion surfaced in si-qhz and si-bwo? Architectural hypothesis test, not a U-number primary unknown — but downstream of U3 if the answer is depth-dependent.
+
+**Beads issues:** si-s9y (this sweep), `discovered-from: si-bwo`. Memory `local_temporal_context.md` codifies the broader principle.
+
+### Pre-registration *(commit this block before running)*
+
+**Setup:**
+
+- **Dataset:** same 731 Cassandra dev@ 2014 messages from si-qhz/si-bwo. No re-harvest.
+- **Detector:** same `schedule_change_announcement` prompt frozen in commit 7d64413. No prompt change. Hash unchanged: `170dcaf6fa91613b`.
+- **Model:** same Qwen3-Coder-30B-A3B at `192.168.100.101:8080`, temperature=0, guided_json schema, max_tokens=400, MAX_BODY_CHARS=60000.
+- **Sweep parameter:** `quote_depth ∈ {0, 1, 2, 999}` applied via `src/classify/quote_extractor.extract_at_depth(body, depth)` before the prompt is built. depth=999 is operationally "no filtering" (effectively ∞ for this corpus where max observed depth is ~6); included as a baseline that uses the same code path as the other depths so any differences attribute to the depth parameter and not to preprocessing artifacts.
+- **Labels:** existing 149-item labels file from si-qhz + si-bwo. Labels are message-scoped — they describe what the message is, independent of which depth view of it the model saw. Re-using labels is valid; relabeling would be a separate experiment.
+- **Eval:** pool-and-extrapolate harness per depth. Run separately, four scorecards. Compare F1, precision, recall, Brier, model-positive count.
+
+**Frozen artifacts** (any change invalidates this pre-reg):
+- `src/classify/quote_extractor.extract_at_depth` semantics (quote_depth counting, attribution-line stripping at depth=0, blank-line collapse). 10/10 unit tests passed in commit prior to this pre-reg.
+- The sweep depths {0, 1, 2, 999}. No mid-flight depth additions; if a different depth proves interesting, it goes in a new pre-reg.
+
+**Prediction:**
+
+| depth | predicted precision | predicted recall | predicted F1 | predicted model-positives | rationale |
+|-------|---------------------|------------------|--------------|----------------------------|-----------|
+| 0 | 0.50 – 0.75 | 0.45 – 0.65 | **0.50 – 0.65** | 15 – 30 | "+1" replies become bare; FPs from quoted-anchor disappear; small recall hit on messages whose new content references but doesn't restate schedule. |
+| 1 | 0.30 – 0.50 | 0.55 – 0.70 | 0.40 – 0.55 | 30 – 50 | Reply + immediate parent. Recovers some recall via parent context, but inherits some of the quoted-anchor FPs. |
+| 2 | 0.27 – 0.40 | 0.60 – 0.75 | 0.40 – 0.50 | 35 – 55 | Adds grandparent. Most threads in this corpus have ≤2 levels of quoted history, so depth=2 ≈ depth=∞ for many messages. |
+| 999 | 0.25 – 0.35 | 0.55 – 0.70 | 0.35 – 0.45 | 40 – 50 | Should match si-bwo's relaxed-cap merged baseline (precision 0.286, F1 0.358) modulo blank-line-collapse differences. |
+
+**Best-depth prediction: depth=0 wins on F1**, by a margin of at least 0.10 over depth=999. Reasoning: the dominant FP source from si-qhz/si-bwo is the model anchoring on quoted parent content. Depth=0 eliminates that anchor source. The recall trade is small because most actual schedule-change-announcements in this corpus restate the change in their new content (e.g., "I propose postponing 1.2.17", "I'll re-roll", "we'll commit to adding no new features after 2.1.0").
+
+**Decision rule:**
+
+- **depth=0 F1 ≥ depth=999 F1 + 0.10 AND depth=0 precision ≥ 0.50:** clear sweet spot. Adopt depth=0 as default for this detector. Promote `schedule_change_announcement` to **Prototype** in detector-catalog. Result is also evidence for the "local temporal context is a first-class parameter" memory.
+- **0 < depth=0 F1 − depth=999 F1 < 0.10:** depth-stripping helps but isn't decisive. Document, treat depth=0 as a tunable. Don't promote yet.
+- **depth=1 wins F1 by ≥0.05 over depth=0 and depth=999:** the right envelope is "reply + immediate parent." Adopt depth=1.
+- **depth=999 ties or wins:** the model isn't actually fooled by quoted material, or quote-stripping introduces other failure modes that offset the gain. Surprising result; investigate before drawing conclusions.
+
+**Falsifiers / mind-changers:**
+
+- **All depths produce F1 within 0.03 of each other:** quote depth isn't the load-bearing parameter; the failure mode is something else (rubric ambiguity, prompt clarity, etc.). Falsifies the si-bwo hypothesis. Significant — would refocus si-d6m toward rubric work alone.
+- **depth=0 produces 0 model-positives or > 100 model-positives:** preprocessing is broken. Stop and inspect.
+- **depth=999 scorecard differs significantly from si-bwo's merged baseline (F1 ±0.05):** the `extract_at_depth` code path has unintended side effects beyond pure depth filtering. Investigate before trusting the sweep.
+- **Brier scores diverge by >0.10 across depths:** calibration is depth-sensitive in a way that complicates downstream use of logprobs. Note and feed into si-kxh (calibration follow-up).
+- **A depth produces predictions that flip on items with body length far below the 60K cap:** suggests sensitivity to formatting/whitespace that's separate from quote content. Inspect.
+
+### Results *(commit this block after running)*
+
+*(To be filled in after the four runs land. si-s9y closes with a pointer to the Results commit.)*
+
+---
+
 ## 2026-05-02: schedule_change_announcement on Cassandra dev@ 2014 — first binary classifier
 
 **Question:** Primary U3 (how small can the cheap classification tier get without losing accuracy?), secondary U4 (signal density in operational text streams). The detector itself (`schedule_change_announcement` from `docs/detector-catalog.md`) is universal-generalization-claimed but this run is single-domain — generalization tests come later, on a multi-org corpus.
