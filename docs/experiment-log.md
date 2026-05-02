@@ -61,6 +61,94 @@ Negative results compound as much as positive ones. Skipping the pre-reg block i
 
 ---
 
+## 2026-05-02: Parallel batch — eval harness fix, frontier ceiling check, typed-tag first foray
+
+**Question:** Three independent experiments dispatched as a parallel work batch under the autonomous-execution principle (memory: `no_epistemic_downside.md`). Each is well-specified with a pre-reg block, decision rule, and falsifiers. They share no resource conflicts and can run concurrently.
+
+**Beads issues:**
+- si-2t4 / si-jkr (eval harness fix)
+- si-2z6 / si-5m8 (frontier-tier ceiling check)
+- si-qdf / si-cjc (typed-tag first foray)
+
+### Sub-experiment 1: si-2t4 — fix eval harness stratification bug
+
+**Setup:**
+- The pool_and_extrapolate harness samples a "random" set of model-negatives to extrapolate FN rate. Currently this sample is drawn from `predictions ∩ existing_labels` (unintended) — i.e., it's biased toward items previously included in the labeled pool. The labeled pool was constructed from a *different* prediction set's model-positives + a random sample of *that* set's model-negatives. So the "random" sample for the FN extrapolation is biased toward items the original (different) classifier disagreed with.
+- The fix: separate the labeled-pool's role (precision: count POS labels in model_positives ∩ labels) from the random-sample's role (recall: should be a fresh random sample of CURRENT model_negatives, not pre-determined by the labeled pool's composition).
+- Concretely: change `evaluate()` to take a separate `recall_sample_strategy` — either "use_labeled_pool_intersection" (current biased default) or "uniform_random_from_predictions_negatives" (fix). Add a synthetic test demonstrating the bias and the fix.
+
+**Predictions:**
+- The fix applied to v2_elided should produce recall ≈ 0.625 (matching pool-direct). The current biased extrapolation reports 0.254. The point of the fix is to make extrapolated recall actually agree with pool-direct on this concrete case.
+- Test: synthetic data with known FN rate of 0.005 (rare-positive baseline). Biased estimator over-reports FN. Fixed estimator returns ~0.005.
+
+**Decision rule:**
+- **Fixed estimator on v2_elided produces recall within 0.05 of pool-direct (0.625):** harness is fixed; adopt for future experiments.
+- **Fixed estimator differs from pool-direct by >0.05:** there's another bias source unidentified; investigate.
+
+**Falsifiers:**
+- The synthetic test fails with the fix: my analysis of the bias source is wrong.
+- The fixed estimator on v2_elided produces an even lower recall than the biased one: methodology error.
+
+### Sub-experiment 2: si-2z6 — frontier-tier ceiling check on schedule_change_announcement
+
+**Setup:**
+- Apply the v2_elided prompt + body shape (from si-rrz) to all 731 messages, but with a frontier-tier model (Opus 4.7) instead of the cheap-tier (Qwen3-Coder-30B).
+- Score against OpusLabel-v2 (the same 153-item pool used for v2_elided's eval).
+- Specifically check the 3 TPs that v2_elided dropped: Op-9 (Sylvain "1.2.18 re-roll"), Shuler ("Should this be fixed for a 1.2.18 re-roll?"), Ellis ("I'd even lean towards taking 1.2.17 down").
+
+**Predictions:**
+- Frontier F1 against Opus-v2: **0.85–0.95**. Opus has stronger inference about version-state context even with elision.
+- Recovers all 3 of the dropped TPs (recall = 8/8 = 1.0 if Opus reads the elided body successfully).
+- May produce 1-2 new FPs vs cheap-tier-v2_elided's 0 (Opus's permissiveness on borderline cases). Net F1 still substantially above cheap-tier.
+- Disagreement with Opus-v2 labels primarily on the same boundary cases the v2_strict→v2 label delta exposed (vote-failure rerolls, vote mechanic adjustments) — these are rubric-ambiguous, not capability-ceiling.
+
+**Decision rule:**
+- **Frontier F1 > cheap-tier's 0.769 by ≥0.05:** capability ceiling exists. Cheap-tier is missing extractable signal that a frontier model finds. Substrate work (si-qdf) is *one* way to close the gap; another is invocation of frontier on a sub-pool of messages (cost-tier hierarchy decision).
+- **Frontier F1 ≤ cheap-tier's 0.769 + 0.05:** no capability ceiling; rubric is the ceiling. The 3 dropped TPs aren't recoverable without substrate (they're truly under-determined by the elided message text). U3 finding for this prompt design.
+- **Frontier recovers all 3 dropped TPs:** confirms substrate-demand is real and not a capability ceiling — the information IS in the message context (just not extractable by cheap-tier without help).
+- **Frontier misses 2-3 of the dropped TPs too:** not even Opus can disambiguate 1.2.18 vs 1.2.17 from elided context alone — *substrate is fundamentally needed*, not just helpful.
+
+**Falsifiers:**
+- Frontier produces fewer model-positives than cheap-tier (5): unexpected — frontier is more conservative than cheap-tier on this rubric. Worth investigating.
+- Frontier-Opus and labeling-Opus disagree on >50% of items: one of the two is mis-applying the v2 rubric.
+
+### Sub-experiment 3: si-qdf — typed-tag first foray (version-state-at-time)
+
+**Setup:**
+- Build a version-extraction pass: regex-extract Cassandra version mentions (e.g., `1.2.16`, `2.0.10`, `2.1`, `3.0`) from each message's new_content, attribution_lines, and quoted material.
+- Build a state-at-time index: for each (version, timestamp) tuple, classify the version's state at that timestamp into:
+  - `pre_announcement` (no [VOTE] subject yet for this version)
+  - `vote_active` (a [VOTE] for this version is in flight)
+  - `vote_passed` ([VOTE PASSED] or release announcement)
+  - `released` (more than X days after vote passed; not used in this corpus, fold into vote_passed)
+  - `vote_failed` ([VOTE CLOSED] without [VOTE PASSED])
+- Augment the v2_elided user prompt with a `VERSION CONTEXT:` section listing each version mentioned in the message and its state-at-time. New prompt variant: `v2_elided_tagged`.
+- Re-run on 731 corpus, score against OpusLabel-v2.
+- Specifically check whether the 3 v2_elided dropped TPs (Op-9 Sylvain "1.2.18", Shuler "1.2.18", Ellis "1.2.17 takedown") are recovered.
+
+**Predictions:**
+- Op-9 recovers: with VERSION CONTEXT showing "1.2.18: pre_announcement" at 2014-07-02, the cheap-tier should recognize "I'd prefer doing a quick re-roll of 1.2.18" as introducing a NEW version. **Recovers.**
+- Shuler "Should this be fixed for a 1.2.18 re-roll?": same — the question form references a not-yet-announced version. **Recovers, with some uncertainty (question form may not match POS examples cleanly).**
+- Ellis "I'd even lean towards taking 1.2.17 down": with VERSION CONTEXT showing "1.2.17: vote_passed" at this message's time, the cheap-tier should recognize "taking 1.2.17 down" as withdrawing a passed release. **Recovers.**
+- New FPs: 0-2. Worry: messages that mention any version with non-trivial state get re-classified as schedule-relevant.
+- F1: predicted **0.85–0.92** if all 3 recover and FP count stays ≤2.
+
+**Decision rule:**
+- **F1 > 0.85 AND precision > 0.85:** typed-tag substrate piece earns its keep. Promote `version_state_at_time` to a first-class extracted field, integrate into the harvest pipeline. si-qdf becomes the *first earned* substrate piece.
+- **0.77 ≤ F1 ≤ 0.85:** marginal improvement; tags help but don't dominate. Document and decide whether to pursue further. Compare to si-2z6 result — if frontier ceiling is at the same place, the substrate is genuinely closing the gap.
+- **F1 < 0.77 (i.e., worse than v2_elided):** typed tags introduced more noise than signal. Inspect what changed; likely the cheap-tier over-relies on the VERSION CONTEXT block and misclassifies messages that reference versions for unrelated reasons.
+
+**Falsifiers:**
+- Tagging fires on >50% of messages (most messages mention some version): tags are too coarse; need to filter.
+- The version-state index has gaps (versions appearing in [VOTE] subjects but not classifiable into a state): the state machine is wrong; refine.
+- Recovery of the 3 TPs is associated with a precision drop of >0.20: substrate is over-aggressive; maybe restrict the VERSION CONTEXT augmentation to messages that explicitly reference a version in their new_content.
+
+### Results *(append per sub-experiment after each completes)*
+
+*(To be appended as the parallel batch lands.)*
+
+---
+
 ## 2026-05-02: v2_elided sub-foray — does eliding quoted line content fix the precision shortfall?
 
 **Question:** v2's F1 = 0.727 hit a precision near-miss (0.571 vs 0.70 threshold). All 6 FPs are quoted-text-rule failures concentrated on one phrase ("I'd love it if we could modify the C* release cycle...") in one thread. Is the precision shortfall *entirely* a quoted-text-anchoring problem, or are there other causes hiding in the cluster?
