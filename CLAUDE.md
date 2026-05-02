@@ -86,6 +86,11 @@ AGENTS.md                Bd-installed agent instructions (see CLAUDE.md for proj
   - **`TaskCreate` is fine** for session-internal task tracking — it's ephemeral, orthogonal to bd's cross-session work. bd holds durable work; `TaskCreate` holds within-session organization.
   - **Auto memory at `~/.claude/projects/-home-vanreece-situational-intelligence/memory/` continues to apply** — these are cross-conversation user/project/reference facts, not work items, and don't fit bd's issue shape.
   - **Do not push to remote without explicit user instruction.** bd's mandatory-push rule is overridden by our general project discipline. Push when the user asks, not automatically.
+- **Snapshot transient state at every control edge.** Whenever the conversation hits a pause point — waiting on the user, waiting on an external signal (homelab coming up, a long-running job, a model run), or about to hand off — write the transient state down before going idle. This protects against context being cleared or compacted mid-pause: a fresh session can resume cleanly from what's on disk. Concretely:
+  - **Issue-scoped pauses:** append a `[paused YYYY-MM-DD] ...` note to the relevant bd issue with resume instructions and pointer commits. `bd update <id> --append-notes "..."`
+  - **Cross-issue or non-issue state:** overwrite `docs/session-handoff.md` and commit it. The file is a single-page snapshot: what we just did, what's pending, the next concrete move, any environment quirks. It is *not* append-only — each pause overwrites.
+  - **Don't duplicate state that's already durable.** Git commits, bd issue state, and memory files survive context clears already. Only capture the *transient* context (mental model in flight, mid-stream decisions, "we paused at step 3 of 6") that would otherwise live only in conversation history.
+  - The trigger is event-based, not quantity-based. Don't try to estimate context usage — trigger on every "standing by" moment instead.
 
 ## Reading order for new sessions
 
