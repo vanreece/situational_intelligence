@@ -35,6 +35,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from src.classify.quote_extractor import extract_at_depth, extract_message_context, elide_quoted_lines
+from src.structure.version_state import (
+    VersionStateIndex,
+    build_index_from_corpus,
+    render_version_context_block,
+)
 
 ENDPOINT = "http://192.168.100.101:8080/v1/chat/completions"
 MODEL_ID = "btbtyler09/Qwen3-Coder-30B-A3B-Instruct-gptq-4bit"
@@ -122,6 +127,22 @@ QUOTED CONTEXT (from earlier messages, for reference only — NOT this author's 
 EMPTY_NEW_CONTENT_PLACEHOLDER = "(no new content from this author in this message)"
 EMPTY_QUOTED_PLACEHOLDER = "(no quoted context in this message)"
 
+# v2_elided_tagged (si-qdf): same as v2_elided, but the user message is augmented
+# with a VERSION CONTEXT block listing each version mentioned in this message and
+# its release-process state-at-time of the message timestamp. Frozen in si-qdf
+# pre-reg (commit c933d89). The version-state extraction is regex+state-machine,
+# not LLM — see src/structure/version_state.py.
+USER_TEMPLATE_V2_TAGGED = """Message:
+From: {from_raw}
+Subject: {subject}
+Date: {date}
+
+{version_context_block}
+
+{body_text}"""
+
+EMPTY_VERSION_CONTEXT_PLACEHOLDER = "VERSION CONTEXT: (no Cassandra versions mentioned in this message)"
+
 GUIDED_JSON_SCHEMA = {
     "type": "object",
     "properties": {
@@ -134,13 +155,13 @@ GUIDED_JSON_SCHEMA = {
 }
 
 
-PROMPT_VARIANTS = ("current_baseline", "new_only", "new_with_marked_quoted", "v2_strict", "v2_elided")
+PROMPT_VARIANTS = ("current_baseline", "new_only", "new_with_marked_quoted", "v2_strict", "v2_elided", "v2_elided_tagged")
 
 
 def _system_prompt_for(variant: str) -> str:
     if variant == "new_with_marked_quoted":
         return SYSTEM_PROMPT + SYSTEM_PROMPT_MARKED_SUFFIX
-    if variant in ("v2_strict", "v2_elided"):
+    if variant in ("v2_strict", "v2_elided", "v2_elided_tagged"):
         return SYSTEM_PROMPT_V2
     return SYSTEM_PROMPT
 
@@ -148,6 +169,8 @@ def _system_prompt_for(variant: str) -> str:
 def _user_template_for(variant: str) -> str:
     if variant == "new_with_marked_quoted":
         return USER_TEMPLATE_MARKED
+    if variant == "v2_elided_tagged":
+        return USER_TEMPLATE_V2_TAGGED
     return USER_TEMPLATE
 
 
@@ -171,16 +194,23 @@ MAX_BODY_CHARS = 60_000  # was 8000; bumped after si-qhz token-usage audit showe
                          # 100K chars hit the 32K context limit on a 92K-char message.
 
 def build_request(message: dict, quote_depth: int | None = None,
-                  prompt_variant: str = "current_baseline") -> dict:
+                  prompt_variant: str = "current_baseline",
+                  version_state_index: VersionStateIndex | None = None) -> dict:
     """Build the chat-completions payload.
 
-    prompt_variant ∈ {"current_baseline", "new_only", "new_with_marked_quoted"}.
-    Frozen variants per the si-clz pre-reg (commit c364b64).
+    prompt_variant ∈ PROMPT_VARIANTS.
+    Frozen variants per the si-clz pre-reg (commit c364b64) and si-qdf pre-reg
+    (commit c933d89, adds v2_elided_tagged).
 
     For "current_baseline": legacy depth-filtering behavior (quote_depth applies).
     For "new_only": uses extract_message_context().new_content; quote_depth is ignored.
     For "new_with_marked_quoted": structured prompt with NEW REPLY / QUOTED CONTEXT
       sections; quote_depth is ignored.
+    For "v2_strict": v2 system prompt + depth-filtered body (matches current_baseline shape).
+    For "v2_elided": v2 system prompt + each quoted line content replaced with [QUOTED].
+    For "v2_elided_tagged": v2_elided body + augmented user message with VERSION CONTEXT
+      block listing each version mentioned in this message and its state-at-time.
+      Requires `version_state_index` to be passed (built once per run).
     """
     if prompt_variant not in PROMPT_VARIANTS:
         raise ValueError(f"unknown prompt_variant: {prompt_variant}")
@@ -210,6 +240,24 @@ def build_request(message: dict, quote_depth: int | None = None,
         body = elide_quoted_lines(body, max_depth=depth)
         user_msg = USER_TEMPLATE.format(
             from_raw=from_raw, subject=subject, date=date,
+            body_text=body[:MAX_BODY_CHARS],
+        )
+    elif prompt_variant == "v2_elided_tagged":
+        # si-qdf: v2_elided body shape + VERSION CONTEXT block prepended to body
+        # in the user message. Tests whether typed version-state-at-time tags
+        # recover the 3 dropped TPs (Op-9, Shuler, Ellis-1.2.17-takedown) lost
+        # under v2_elided due to missing inter-message version-disambiguation.
+        depth = quote_depth if quote_depth is not None else 999
+        body = elide_quoted_lines(body, max_depth=depth)
+        if version_state_index is not None:
+            vc_block = render_version_context_block(message, version_state_index)
+        else:
+            vc_block = ""
+        if not vc_block:
+            vc_block = EMPTY_VERSION_CONTEXT_PLACEHOLDER
+        user_msg = USER_TEMPLATE_V2_TAGGED.format(
+            from_raw=from_raw, subject=subject, date=date,
+            version_context_block=vc_block,
             body_text=body[:MAX_BODY_CHARS],
         )
     elif prompt_variant == "new_only":
@@ -355,8 +403,10 @@ def parse_message_content(response: dict) -> dict:
 
 
 def classify_one(message: dict, quote_depth: int | None = None,
-                 prompt_variant: str = "current_baseline") -> dict:
-    payload = build_request(message, quote_depth=quote_depth, prompt_variant=prompt_variant)
+                 prompt_variant: str = "current_baseline",
+                 version_state_index: VersionStateIndex | None = None) -> dict:
+    payload = build_request(message, quote_depth=quote_depth, prompt_variant=prompt_variant,
+                            version_state_index=version_state_index)
     response = call_endpoint(payload)
     parsed = parse_message_content(response)
     prediction = bool(parsed["is_schedule_change_announcement"])
@@ -399,6 +449,14 @@ def run(corpus_dir: Path, out_path: Path, limit: int | None = None,
     done = already_done_ids(out_path)
     if done:
         print(f"Resuming: {len(done)} ids already classified", file=sys.stderr)
+
+    # Build version-state index once per run when needed.
+    vs_index: VersionStateIndex | None = None
+    if prompt_variant == "v2_elided_tagged":
+        print("Building version-state index over corpus...", file=sys.stderr)
+        vs_index = build_index_from_corpus(corpus_dir)
+        print(f"  {len(vs_index.known_versions())} known versions indexed", file=sys.stderr)
+
     summary = {"processed": 0, "skipped": 0, "errors": 0, "predictions": []}
     with out_path.open("a", encoding="utf-8") as out:
         for f in files:
@@ -410,7 +468,8 @@ def run(corpus_dir: Path, out_path: Path, limit: int | None = None,
                     summary["skipped"] += 1
                     continue
                 try:
-                    result = classify_one(msg, quote_depth=quote_depth, prompt_variant=prompt_variant)
+                    result = classify_one(msg, quote_depth=quote_depth, prompt_variant=prompt_variant,
+                                          version_state_index=vs_index)
                     out.write(json.dumps(result, ensure_ascii=False) + "\n")
                     out.flush()
                     summary["processed"] += 1

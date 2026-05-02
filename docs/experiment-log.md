@@ -172,9 +172,54 @@ Negative results compound as much as positive ones. Skipping the pre-reg block i
 
 *(Subagent in flight.)*
 
-#### si-qdf — typed-tag first foray (PENDING)
+#### si-qdf — typed-tag first foray (LANDED — counterintuitive REGRESSION)
 
-*(Subagent in flight.)*
+**Headline (pool-direct vs OpusLabel-v2):**
+
+| variant | model+ | TP | FP | FN | Precision | Recall | F1 |
+|---------|-------:|---:|---:|---:|----------:|-------:|----:|
+| v2_elided baseline | 5 | 5 | 0 | 3 | 1.000 | 0.625 | **0.769** |
+| **v2_elided_tagged** | 4 | 4 | 0 | 4 | 1.000 | 0.500 | **0.667** |
+
+**Decision-rule branch:** `regression` — F1 dropped 0.10 below v2_elided. Pre-reg's third decision-branch fired ("F1 < 0.77: typed tags introduced more noise than signal").
+
+**0 of 3 dropped TPs recovered. 1 additional TP lost.** Net −1 TP. **The substrate REGRESSED the detector despite building correct data.**
+
+**Mechanism — the surprise:**
+
+The version-state index built CORRECTLY for all 3 target messages: `1.2.17: vote_passed (passed 2014-06-30)`, `1.2.18: pre_announcement (no [VOTE] yet)`. Verified in pre-classification rendering. The substrate did exactly what it was designed to do.
+
+But the cheap-tier *anti-anchored* on the structured context. With "1.2.17: vote_passed" in the prompt, the cheap-tier interpreted ANY discussion of 1.2.18 as "procedural fallout from the just-passed 1.2.17 vote" — invoking the v2 rubric's "vote-failure rerolls of an already-planned release" NEGATIVE category. Per-message rationales (much higher confidence than under v2_elided alone):
+- Op-9: "this is about procedural mechanics of an already-planned release process … standard procedure, not a schedule modification" (p_pos = 3.9e-5)
+- Shuler: "questioning whether to fix the issue for a potential future release rather than announcing a schedule change for an existing planned release" (p_pos = 3.8e-4)
+- Ellis: "procedural adjustment to an already-passed vote, not a substantive schedule change" (p_pos = 9.7e-7)
+
+The lost TP (Ellis "What if we tried a quicker release cycle...") fell to the same anti-anchoring: the VERSION CONTEXT block listed multiple pre-announcement versions, and the cheap-tier read this as "proposing a new release-management approach rather than modifying [a previously stated date]."
+
+**Pre-reg accuracy:** *all four* per-test predictions wrong, but in a structurally informative way:
+- Predicted F1 0.85–0.92; actual 0.667 (well below floor).
+- Predicted "Recovers" for all 3; all 3 stayed NEG and *more confidently* (p_pos << 0.001 vs v2_elided's p_pos ≈ 0.1–0.4 on these items).
+- Predicted 0–2 new FPs; got 0 new FPs but lost 1 prior TP. Net −1 TP, not net 0.
+- Predicted that absence of state info was the cheap-tier's bottleneck. Actual: *presence* of state info gave the wrong frame more surface area.
+
+No falsifiers triggered (tagging fired on 0.55% of messages, well below the 50% over-firing threshold). The substrate didn't go off the rails; it just failed to do anything useful and slightly anti-helped.
+
+**Critical U3 finding (memory updated: `messages_are_not_single_thesis_streams.md`):** "The cheap-tier failed to disambiguate from message text alone" does NOT imply "adding structured context will fix it." The cheap-tier can interpret correct structured context in the *opposite* of the intended direction — using it to *reinforce* a rubric frame that's wrong for the specific case. Substrate-demand inferences must be *tested*, not just inferred from absence-of-information arguments.
+
+**The substrate-demand framing from si-rrz is now downgraded.** That framing said "the 3 lost TPs need version-state context to disambiguate." The correct version-state context was supplied. They still weren't disambiguated. Either:
+1. **The cheap-tier capability is the ceiling** for these 3 specific messages (pending si-2z6 result for confirmation).
+2. **A different prompt structure could surface the right interpretation** (e.g., few-shot examples showing "1.2.18 in this thread context = NEW version proposal" — heavy-structure intervention per the si-d6m finding that lightweight instructions don't steer).
+3. **These 3 messages are genuinely under-determined** for any cheap-tier model; recovering them requires either a frontier-tier escalation or accepting they're not catchable in production.
+
+The si-2z6 result (frontier ceiling check) is the natural disambiguator and lands next.
+
+**Code committed during the foray** (subagent's work):
+- `src/structure/version_state.py` (with self-test) — version extraction + state-at-time index
+- `src/structure/__init__.py`
+- `src/classify/schedule_change_announcement.py` — added `v2_elided_tagged` variant + index plumbing (frozen prompt hash `c3f636160a9f82ab`)
+- `src/evaluate/analyze_qdf_tagged.py` — scorer
+- `results/detector-runs/.../si-qdf/cassandra-2014-predictions-v2-elided-tagged.jsonl`
+- `results/evals/schedule_change_announcement-qdf-tagged/scorecard.json`
 
 ---
 
