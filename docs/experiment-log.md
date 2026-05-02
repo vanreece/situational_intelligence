@@ -61,6 +61,61 @@ Negative results compound as much as positive ones. Skipping the pre-reg block i
 
 ---
 
+## 2026-05-02: v2_elided sub-foray — does eliding quoted line content fix the precision shortfall?
+
+**Question:** v2's F1 = 0.727 hit a precision near-miss (0.571 vs 0.70 threshold). All 6 FPs are quoted-text-rule failures concentrated on one phrase ("I'd love it if we could modify the C* release cycle...") in one thread. Is the precision shortfall *entirely* a quoted-text-anchoring problem, or are there other causes hiding in the cluster?
+
+**Beads issues:** si-rrz (run), si-3mg (pre-reg), `discovered-from: si-d6m`. User explicitly chose this path over the alternative (accept v2 as-is) to test "how much difference we can check there."
+
+### Pre-registration *(commit this block before running)*
+
+**Setup:**
+
+- Same v2 system prompt (hash `d6a472a3ad6bd5f2`), same depth=2 envelope, same corpus, same 153-item OpusLabel-v2 pool.
+- New variant `v2_elided`: each line whose `quote_depth > 0` has its content replaced with the literal token `[QUOTED]` (one `[QUOTED]` per quoted line). Attribution lines and signatures unchanged. The cheap-tier still sees that quoted material exists (preserves "this is a thread reply" context) but cannot read specific phrases.
+- Implemented as a fifth prompt variant alongside `current_baseline`, `new_only`, `new_with_marked_quoted`, `v2_strict`. Frozen prompt-hash will differ from `v2_strict` because the rendered user-message bodies differ (the system prompt is identical to v2_strict, but the user message text is structurally different — same template, different body content).
+- Run on full 731-message corpus.
+- Score against the existing 153-item OpusLabel-v2 (the same labels used for v2_strict — apples-to-apples comparison).
+- If `v2_elided` fires positive on items not in the 153-pool, spawn a small subagent to label them (same protocol as the 4-item follow-up subagent).
+
+**Frozen artifacts:** the v2 system prompt, the 153 OpusLabel-v2 file, the corpus, the depth=2 quote filter, the elision rule (replace each quoted line's content with `[QUOTED]`).
+
+**Predictions:**
+
+| Test | Predicted | Mechanism |
+|------|-----------|-----------|
+| `v2_elided` model-positives in 731 corpus | **6–10** (down from v2's 14) | Elision suppresses anchoring on the 6 currently-quoted-anchored FPs; should also leave the 8 v2-TPs intact (their evidence is in new content, not quoted). Possibly loses 1-2 to over-suppression. |
+| precision against Opus-v2 | **0.85–1.00** | If the failure mode is purely quoted-text anchoring, all 6 FPs flip to NEG. Remaining model-positives are mostly TPs. |
+| recall against Opus-v2 | **0.75–1.00** | Some risk that elision drops a currently-TP item (e.g., Op-13, where cheap-tier-v2 anchored on quoted "after 3.0" but Opus-v2 says POS based on Jonathan's actual new content — if cheap-tier loses the anchor, does it find the new-content signal?). The v2_elided test will reveal whether v2 cheap-tier's TPs were genuinely from new content or from quoted anchoring. |
+| F1 | **0.85–0.95** | Big jump from v2's 0.727 if elision works as predicted. |
+| Op-13 (Jonathan, "after 3.0" quoted) | **possibly POS, possibly NEG** | This is the cleanest test of "right answer for right reason vs right answer for wrong reason." Under v2_strict the cheap-tier anchored on quoted text and got POS. Under v2_elided, cheap-tier sees only the new content ("It's too late for a schema change in 2.1, and 3.0 we're already planning to move to file-based hint storage") + [QUOTED] markers. Will it find Jonathan's actual schedule signal? |
+
+**Per-FP predictions** (the 6 v2_strict FPs, all in cycle-proposal cluster):
+
+All 6 should flip to NEG under v2_elided because their evidence_quotes were in quoted text. If any stay POS, the cheap-tier found a NEW-content schedule signal we missed in the v2_strict analysis.
+
+**Decision rule:**
+
+- **F1 ≥ 0.85 AND precision ≥ 0.70:** detector is **promoted to Prototype**. Both criteria met. Adopt v2_elided as the operating point. Move to si-t3l (cross-corpus generalization).
+- **0.65 ≤ F1 < 0.85, precision ≥ 0.70:** marginal precision win, F1 closer to v2_strict than predicted. Likely some recall loss from elision broke even with precision gain. Promotion still happens (F1 + precision both met).
+- **F1 < 0.65 OR precision < 0.70:** elision didn't fix the problem cleanly. Either the failure mode wasn't purely anchoring (precision still low) or elision broke productive signal (recall dropped). Stay with v2_strict; document this finding.
+- **F1 ≥ v2_strict's 0.727 by ≥0.05:** material improvement; v2_elided is the better operating point regardless of formal promotion.
+- **F1 < v2_strict's 0.727 by ≥0.05:** elision was a net negative. Stay with v2_strict.
+
+**Falsifiers / mind-changers:**
+
+- **`v2_elided` model-positives < 4:** elision suppressed too much; model can't find any positives even in the rubric's clear cases. Op-14 (Paulo "I propose postponing 1.2.17") and similar should still fire — if they don't, the elision is masking new-content signal somehow (interaction with attribution lines? formatting?).
+- **`v2_elided` model-positives > 14** (more than v2_strict): elision somehow *added* positives. Surprising — would suggest the cheap-tier under elision is over-reading the [QUOTED] markers as suspicious and flagging messages it wouldn't have under v2_strict. Inspect.
+- **One of the 6 v2_strict FPs stays POS under v2_elided:** the FP's evidence wasn't really in quoted text, despite the v2_strict evidence_quote field saying so. Could be the cheap-tier emitted a quoted-text evidence_quote post-hoc but actually anchored on new content. Worth investigating that specific FP.
+- **Op-13 flips to NEG under v2_elided:** the "after 3.0" anchor was load-bearing for Op-13's TP. Jonathan's actual new content is schedule-relevant, but the cheap-tier may not extract it without the quoted anchor. Important U3 finding about which signals the cheap-tier can find vs which it relies on quoted anchors for.
+- **Recall drops below 0.5:** elision broke too much. The current 1.0 recall (extrap) was load-bearing on quoted anchors more than expected. Stay with v2_strict.
+
+### Results *(commit this block after running)*
+
+*(To be appended after running.)*
+
+---
+
 ## 2026-05-02: Sharpen `schedule_change_announcement` rubric (v2)
 
 **Question:** Does a sharper rubric — one that takes explicit positions on the rubric-ambiguous boundary cases identified by si-pfo and si-clz — close the F1 gap toward the 0.65 promotion threshold? Specifically, does shifting the rubric to *exclude* vote-failure rerolls and vote-mechanic adjustments (which are normal release process, not schedule changes) improve detector quality from a *senior operator's* perspective?
