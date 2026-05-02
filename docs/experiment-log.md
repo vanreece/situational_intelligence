@@ -168,9 +168,60 @@ Negative results compound as much as positive ones. Skipping the pre-reg block i
 - **Future detectors should always set `sample_role`** when constructing label pools, so the unbiased estimator works without fallback gymnastics.
 - **The unsampled-only extrapolation base is the correct default** even in the no-strata case — extrapolating from labeled items over a base that includes those same labeled items is double-counting. This applies to v0.1.0's behavior on any single-classifier eval too; the corrected v1 baseline is the honest number.
 
-#### si-2z6 — frontier-tier ceiling check (PENDING)
+#### si-2z6 — frontier-tier ceiling check (LANDED)
 
-*(Subagent in flight.)*
+**Headline (pool-direct vs OpusLabel-v2, the existing 153-item pool):**
+
+| Test | Model | Precision | Recall | F1 | Model+ |
+|------|-------|----------:|-------:|----:|-------:|
+| **Frontier (Opus 4.7) + v2_elided** | Opus | **0.889** | **1.000** | **0.941** | 14 |
+| Cheap-tier (Qwen3-Coder) + v2_elided | Qwen | 1.000 | 0.625 | 0.769 | 5 |
+| Cheap-tier (Qwen3-Coder) + v2_elided_tagged | Qwen | 1.000 | 0.500 | 0.667 | 4 |
+
+**3/3 dropped TPs recovered** by frontier from the same elided body that the cheap-tier couldn't disambiguate:
+- Op-9 (Sylvain "1.2.18 re-roll") → POS ✓
+- Shuler ("Should this be fixed for a 1.2.18 re-roll?") → POS ✓
+- Ellis ("lean towards taking 1.2.17 down") → POS ✓
+
+**5 unlabeled discoveries:** Frontier fired POS on 5 messages outside the existing 153-item pool. Subagent flagged these as "1.2.15/1.2.18/1.2.19 NEW-version-introduction announcements and the Thrift-freeze proposal." If most are true positives, the OpusPositive set expands meaningfully (from 8 → ~13), which would ripple into all prior recall numbers. **These need labels — filing as a follow-up.**
+
+**1 FP (Marcus "3.0/3.1/4.0 branches" musing):** matches the pre-reg's "1-2 new FPs" prediction. Frontier slightly more permissive than cheap-tier on speculative cycle-architecture musings.
+
+**Decision-rule branches fired (both):**
+- "Frontier F1 > cheap-tier's 0.769 by ≥0.05" → TRUE (0.941 > 0.819). **Capability ceiling exists.**
+- "Frontier recovers all 3 dropped TPs" → TRUE. **The information IS in the elided message context** — extractable with sufficient capability, not extractable by Qwen3-Coder-30B from the same prompt.
+
+**Synthesis with si-qdf:** Read together, si-qdf and si-2z6 paint a clear picture:
+
+| Question | Answer |
+|----------|--------|
+| Is the version-state info present in the elided body? | **Yes** — frontier extracts it correctly, no substrate needed. |
+| Can the cheap-tier extract it from the elided body alone? | **No** — that's the 3 dropped TPs and the 0.625 recall ceiling. |
+| Does adding the version-state info as a structured tag help the cheap-tier? | **No, anti-helps** — cheap-tier interprets the tag in the wrong direction (procedural-fallout frame). |
+| What WOULD help the cheap-tier recover those 3? | (open) — possibly few-shot examples (heavy-structure intervention per the v2 lesson), or cost-tier escalation. |
+
+**The si-rrz "substrate demand" framing is sharpened, not falsified:** The framing said "these 3 TPs need context to disambiguate." That's TRUE — the elided body alone (without thread context) would be under-determined. But the elided body INCLUDES the structural cues (version numbers in the new content, attribution lines showing thread depth) that frontier can reason from. The cheap-tier's failure isn't lack of *information*; it's lack of *reasoning capability over the available information*. The fix isn't to add more structured data; it's to either (a) get a more capable model on these specific cases (cost-tier escalation per `architecture.md`), or (b) provide the right reasoning scaffold via prompt examples.
+
+**Pre-reg accuracy:**
+- F1 prediction (0.85–0.95): hit upper end (0.941). ✓
+- Recovers all 3 dropped TPs: predicted yes; observed yes. ✓
+- 1-2 new FPs: observed 1. ✓
+- Falsifier "Frontier produces fewer model-positives than cheap-tier": NOT triggered (14 vs 5). ✓
+- Falsifier ">50% Opus disagreement with labels": NOT triggered.
+
+**Implications for the project:**
+
+1. **Cost-tier hierarchy validated for this detector.** The architecture's "narrow models do high-volume mechanical classification; capable models design schemas and synthesize" maps cleanly: cheap-tier-v2_elided handles 731 messages at F1=0.769, frontier could backstop the borderline cases (cheap-tier model-negatives with high logprob ambiguity, or messages mentioning specific version numbers). This is a clean architectural pattern, not just a research finding.
+
+2. **The 5 unlabeled frontier-positives are the most interesting deliverable.** If they're true positives, they include detector wins the project hasn't surfaced before — possibly NEW-version proposals (1.2.15, 1.2.18, 1.2.19) and the Thrift-freeze proposal. Filed as a follow-up to label them.
+
+3. **The substrate-demand inference rule needs revision.** Until si-2z6, "cheap-tier failed → substrate would help" was the working assumption. Now the rule should be: "cheap-tier failed → either add substrate (test it!) OR escalate cost-tier (test it!)." si-qdf showed substrate doesn't always help; si-2z6 showed cost-tier does. Memory updated.
+
+4. **The architecture's "discovery vs production" distinction is now empirically grounded.** The 5 unlabeled frontier-positives are exactly the "production runs known detectors fast; discovery samples the long tail with heavier models to find patterns" pattern from `architecture.md`. Frontier-tier on the long tail surfaced detector wins the cheap-tier missed.
+
+**Subagent artifacts (gitignored under results/):**
+- `results/detector-runs/schedule_change_announcement/si-2z6/cassandra-2014-predictions-frontier-v2-elided.jsonl`
+- `results/evals/schedule_change_announcement-2z6-frontier/scorecard.json`
 
 #### si-qdf — typed-tag first foray (LANDED — counterintuitive REGRESSION)
 
