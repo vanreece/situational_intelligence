@@ -5,7 +5,7 @@ Run: python -m src.classify.test_quote_extractor
 
 from __future__ import annotations
 
-from src.classify.quote_extractor import extract_at_depth, quote_depth, is_attribution
+from src.classify.quote_extractor import extract_at_depth, extract_message_context, quote_depth, is_attribution
 
 
 def assert_eq(actual, expected, msg=""):
@@ -131,6 +131,100 @@ def test_only_quoted_returns_empty_at_depth_zero():
     assert out.strip() == "", f"expected empty, got: {out!r}"
 
 
+def test_message_context_basic_top_post():
+    body = """My new reply text.
+Has multiple lines.
+
+On Mon, Mar 11, 2014 at 12:00 PM, Jonathan Ellis <jbellis@gmail.com> wrote:
+> Parent says hi.
+> > Grandparent message.
+> Parent continues.
+--
+Sylvain Lebresne
+Datastax
+"""
+    ctx = extract_message_context(body)
+    assert ctx["new_content"].startswith("My new reply text."), ctx["new_content"]
+    assert "Has multiple lines." in ctx["new_content"]
+    assert "Jonathan Ellis" not in ctx["new_content"]
+    assert ctx["signature"] == "Sylvain Lebresne\nDatastax", ctx["signature"]
+    assert len(ctx["attribution_lines"]) == 1
+    assert "Jonathan Ellis" in ctx["attribution_lines"][0]
+    # Quoted segments: depth-1 → depth-2 → depth-1 (three segments)
+    depths = [s["depth"] for s in ctx["quoted_segments"]]
+    assert depths == [1, 2, 1], depths
+    assert "Parent says hi." in ctx["quoted_segments"][0]["text"]
+    assert "Grandparent" in ctx["quoted_segments"][1]["text"]
+
+
+def test_message_context_bottom_post():
+    body = """> Question from parent?
+> > Grandparent context.
+
+Yes, the answer is 42.
+"""
+    ctx = extract_message_context(body)
+    assert ctx["new_content"] == "Yes, the answer is 42."
+    assert len(ctx["quoted_segments"]) == 2
+    assert ctx["quoted_segments"][0]["depth"] == 1
+    assert ctx["quoted_segments"][1]["depth"] == 2
+    assert ctx["signature"] is None
+
+
+def test_message_context_op13_pattern():
+    """The Op-13 case: new content + attribution + quoted material with anchor phrase."""
+    body = """Unfortunately I don't think we can do much for hint partitioning.
+It's too late for a schema change in 2.1, and 3.0 we're already
+planning to move to file-based hint storage.
+
+On Mon, Jul 14, 2014 at 12:22 PM, graham sanderson <graham@vast.com> wrote:
+> Thanks
+> > I plan to address this, but probably not until after 3.0
+"""
+    ctx = extract_message_context(body)
+    assert "Unfortunately" in ctx["new_content"]
+    assert "after 3.0" not in ctx["new_content"], "the anchoring phrase should NOT leak into new_content"
+    # The quoted text containing "after 3.0" should be in quoted_segments only
+    quoted_text = " ".join(s["text"] for s in ctx["quoted_segments"])
+    assert "after 3.0" in quoted_text
+
+
+def test_message_context_no_quotes():
+    body = "Just a flat message with no quotes.\nLine two.\n"
+    ctx = extract_message_context(body)
+    assert ctx["new_content"] == "Just a flat message with no quotes.\nLine two."
+    assert ctx["quoted_segments"] == []
+    assert ctx["attribution_lines"] == []
+    assert ctx["signature"] is None
+
+
+def test_message_context_signature_dash_dash_no_space():
+    body = "Hello.\n--\nName Here\n"
+    ctx = extract_message_context(body)
+    assert ctx["new_content"] == "Hello."
+    assert ctx["signature"] == "Name Here"
+
+
+def test_message_context_wrapped_attribution():
+    """Mailers sometimes wrap 'On X wrote:' across 2-3 lines. Should still be detected."""
+    body = """Alright, let's wait on 7743
+
+On Wed, Aug 13, 2014 at 7:46 PM, Benedict Elliott Smith <
+belliottsmith@datastax.com> wrote:
+> Quoted body content here.
+"""
+    ctx = extract_message_context(body)
+    assert ctx["new_content"] == "Alright, let's wait on 7743", ctx["new_content"]
+    assert len(ctx["attribution_lines"]) == 1
+    assert "Benedict Elliott Smith" in ctx["attribution_lines"][0]
+    assert ctx["attribution_lines"][0].endswith("wrote:")
+
+
+def test_message_context_empty():
+    ctx = extract_message_context("")
+    assert ctx == {"new_content": "", "quoted_segments": [], "attribution_lines": [], "signature": None}
+
+
 def main():
     tests = [
         ("quote_depth basic", test_quote_depth),
@@ -143,6 +237,13 @@ def main():
         ("collapse blank lines", test_collapse_blank_lines),
         ("empty body", test_empty_body),
         ("only-quoted at depth=0", test_only_quoted_returns_empty_at_depth_zero),
+        ("MessageContext basic top-post", test_message_context_basic_top_post),
+        ("MessageContext bottom-post", test_message_context_bottom_post),
+        ("MessageContext Op-13 pattern (anchoring phrase in quote)", test_message_context_op13_pattern),
+        ("MessageContext no quotes", test_message_context_no_quotes),
+        ("MessageContext signature with no trailing space", test_message_context_signature_dash_dash_no_space),
+        ("MessageContext wrapped multi-line attribution", test_message_context_wrapped_attribution),
+        ("MessageContext empty body", test_message_context_empty),
     ]
     failures = []
     for name, fn in tests:
