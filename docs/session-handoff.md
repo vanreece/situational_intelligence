@@ -2,7 +2,7 @@
 
 > Per `docs/orchestration.md`. Structured for the user's strategy session: read top-down, make calls, file new auto-executable beads, leave.
 
-## Last updated: 2026-05-02 (after the parallel batch — si-2t4, si-qdf, si-2z6)
+## Last updated: 2026-05-03 (after concurrent-dispatch landed — every detector run is now ~40s)
 
 ---
 
@@ -21,6 +21,15 @@
 - `docs/orchestrator-bead-executor-prompt.md` — versioned cold-start prompt for the executor.
 - `bin/orchestrate.sh` — 170-line orchestrator (no LLM in the script itself). Smoke-tested.
 - `.gitignore`: `bead-failures/` added.
+
+**Throughput tuning (committed `35223c3`, `d7077c1`):**
+- `src/classify/dump_prompts.py` — emits exact vLLM payloads to JSONL for replay/tuning experiments (no inference).
+- `src/classify/replay_concurrent.py` — concurrent replay tool (ThreadPoolExecutor wrapping urllib); reports throughput + latency stats.
+- `src/classify/schedule_change_announcement.py` updated:
+  - **Default concurrency = 32** (was sequential). 731-message v2_elided run: **40s** (was 256s, 6.4× speedup), 0 errors, 731/731 prediction agreement with prior sequential.
+  - `--no-logprobs` flag for production runs (response payloads shrink ~98%, p_pos falls back to 0.999/0.001).
+  - `--top-logprobs N` (default 10 preserves accurate `extract_p_positive`; 2 is the practical floor).
+- Memory `homelab_qwen.md` updated with throughput characterization (saturation at conc=32; auxiliary knobs are zero-throughput levers — they shrink response payloads only).
 
 ---
 
@@ -105,7 +114,7 @@ This could materially close the cheap-tier-v2_elided 0.625 recall gap — but it
 
 ## Git state
 
-- 24 local commits ahead of `origin/main`. **User said they'll handle pushes.**
+- 26 local commits ahead of `origin/main`. **User said they'll handle pushes.**
 - Two untracked tarball/zip files (backups), leaving them alone.
 - Working tree otherwise clean.
 
@@ -116,10 +125,13 @@ This could materially close the cheap-tier-v2_elided 0.625 recall gap — but it
 - `local_temporal_context.md` — heavy structured prompts steer cheap-tier; structural elision beats prompt instructions
 - `no_epistemic_downside.md` — autonomous execution principle
 - `tactics_vs_strategy_shapes.md` — bead-vs-strategy-artifact distinction
+- `homelab_qwen.md` — throughput characterization (saturation at conc=32; auxiliary knobs are zero-throughput)
 
 ## Environment notes
 
-- Homelab: stable across the entire session (255–273s wall-clock per 731-message run; ~0.3% transient errors total).
+- Homelab: stable. **New throughput norm:** 731-message run takes ~40s at default concurrency=32 (was ~256s sequential). Saturation at conc=32-64; beyond that is queueing tax with no throughput gain.
 - Two deterministic vLLM/parsing failures fixed earlier (`1f9cdf7`).
-- 5 prompt variants in classifier: current_baseline, new_only, new_with_marked_quoted, v2_strict, v2_elided, v2_elided_tagged. Operating point: v2_elided.
+- 6 prompt variants in classifier: current_baseline, new_only, new_with_marked_quoted, v2_strict, v2_elided, v2_elided_tagged. Operating point: v2_elided.
 - Eval harness now at v0.2.0 with stratified FN (si-2t4 fix).
+- Default concurrency = 32; default logprobs = on. Set `--no-logprobs` for production runs (98% smaller predictions).
+- `bin/orchestrate.sh` is ready but no beads currently labeled `auto-executable` — the first strategy session move is converting one or more ready ideas into self-contained executable beads.
