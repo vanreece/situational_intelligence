@@ -31,8 +31,10 @@ import math
 import sys
 import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
+from threading import Lock
 
 from src.classify.quote_extractor import extract_at_depth, extract_message_context, elide_quoted_lines
 from src.structure.version_state import (
@@ -195,6 +197,9 @@ MAX_BODY_CHARS = 60_000  # was 8000; bumped after si-qhz token-usage audit showe
 
 def build_request(message: dict, quote_depth: int | None = None,
                   prompt_variant: str = "current_baseline",
+                  *,
+                  logprobs: bool = True,
+                  top_logprobs: int = 10,
                   version_state_index: VersionStateIndex | None = None) -> dict:
     """Build the chat-completions payload.
 
@@ -288,7 +293,7 @@ def build_request(message: dict, quote_depth: int | None = None,
             quoted_block=quoted_block,
         )
 
-    return {
+    payload = {
         "model": MODEL_ID,
         "messages": [
             {"role": "system", "content": _system_prompt_for(prompt_variant)},
@@ -296,10 +301,12 @@ def build_request(message: dict, quote_depth: int | None = None,
         ],
         "temperature": 0,
         "max_tokens": 400,
-        "logprobs": True,
-        "top_logprobs": 10,
         "guided_json": GUIDED_JSON_SCHEMA,
     }
+    if logprobs:
+        payload["logprobs"] = True
+        payload["top_logprobs"] = top_logprobs
+    return payload
 
 
 def call_endpoint(payload: dict, timeout: float = 60.0) -> dict:
@@ -404,13 +411,22 @@ def parse_message_content(response: dict) -> dict:
 
 def classify_one(message: dict, quote_depth: int | None = None,
                  prompt_variant: str = "current_baseline",
+                 *,
+                 logprobs: bool = True,
+                 top_logprobs: int = 10,
                  version_state_index: VersionStateIndex | None = None) -> dict:
     payload = build_request(message, quote_depth=quote_depth, prompt_variant=prompt_variant,
+                            logprobs=logprobs, top_logprobs=top_logprobs,
                             version_state_index=version_state_index)
     response = call_endpoint(payload)
     parsed = parse_message_content(response)
     prediction = bool(parsed["is_schedule_change_announcement"])
-    p_pos, lp_debug = extract_p_positive(response, prediction)
+    if logprobs:
+        p_pos, lp_debug = extract_p_positive(response, prediction)
+    else:
+        # Without logprobs, fall back to a hard 0.999/0.001 derived from the prediction.
+        p_pos = 0.999 if prediction else 0.001
+        lp_debug = {"reason": "logprobs_disabled"}
     return {
         "id": message["id"],
         "prediction": prediction,
@@ -443,7 +459,20 @@ def already_done_ids(out_path: Path) -> set[str]:
 
 def run(corpus_dir: Path, out_path: Path, limit: int | None = None,
         quote_depth: int | None = None,
-        prompt_variant: str = "current_baseline") -> dict:
+        prompt_variant: str = "current_baseline",
+        *,
+        concurrency: int = 1,
+        logprobs: bool = True,
+        top_logprobs: int = 10) -> dict:
+    """Classify all messages in corpus_dir, write predictions to out_path.
+
+    Resumable: skips IDs already present in out_path.
+    Concurrent: dispatches up to `concurrency` requests in flight against vLLM.
+    `concurrency=1` preserves the original strictly-sequential behavior.
+
+    Output ordering is non-deterministic when concurrency > 1 (whichever thread
+    finishes first writes first), but each ID is processed exactly once.
+    """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     files = sorted(corpus_dir.glob("*.jsonl"))
     done = already_done_ids(out_path)
@@ -457,30 +486,79 @@ def run(corpus_dir: Path, out_path: Path, limit: int | None = None,
         vs_index = build_index_from_corpus(corpus_dir)
         print(f"  {len(vs_index.known_versions())} known versions indexed", file=sys.stderr)
 
-    summary = {"processed": 0, "skipped": 0, "errors": 0, "predictions": []}
+    # Collect all messages to process up-front so we can dispatch concurrently
+    # while still respecting --limit and resumability.
+    to_process: list[dict] = []
+    n_skipped = 0
+    for f in files:
+        for line in f.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            msg = json.loads(line)
+            if msg["id"] in done:
+                n_skipped += 1
+                continue
+            to_process.append(msg)
+            if limit and len(to_process) >= limit:
+                break
+        if limit and len(to_process) >= limit:
+            break
+
+    summary = {"processed": 0, "skipped": n_skipped, "errors": 0, "predictions": []}
+
+    if not to_process:
+        return summary
+
+    write_lock = Lock()
+    progress_lock = Lock()
+
+    def _classify_and_write(msg: dict, out_fh) -> tuple[str, dict | None, Exception | None]:
+        try:
+            result = classify_one(
+                msg, quote_depth=quote_depth, prompt_variant=prompt_variant,
+                logprobs=logprobs, top_logprobs=top_logprobs,
+                version_state_index=vs_index,
+            )
+        except Exception as e:
+            return (msg["id"], None, e)
+        with write_lock:
+            out_fh.write(json.dumps(result, ensure_ascii=False) + "\n")
+            out_fh.flush()
+        return (msg["id"], result, None)
+
     with out_path.open("a", encoding="utf-8") as out:
-        for f in files:
-            for line in f.read_text(encoding="utf-8").splitlines():
-                if not line.strip():
-                    continue
-                msg = json.loads(line)
-                if msg["id"] in done:
-                    summary["skipped"] += 1
-                    continue
-                try:
-                    result = classify_one(msg, quote_depth=quote_depth, prompt_variant=prompt_variant,
-                                          version_state_index=vs_index)
-                    out.write(json.dumps(result, ensure_ascii=False) + "\n")
-                    out.flush()
-                    summary["processed"] += 1
-                    summary["predictions"].append((msg["id"], result["prediction"], result["p_positive"]))
-                    if summary["processed"] % 50 == 0:
-                        print(f"  [{summary['processed']}] last id {msg['id']}", file=sys.stderr)
-                    if limit and summary["processed"] >= limit:
-                        return summary
-                except Exception as e:
-                    summary["errors"] += 1
-                    print(f"  ERROR on {msg['id']}: {e}", file=sys.stderr)
+        if concurrency == 1:
+            # Strictly sequential; preserves the original wall-clock noise model
+            # (see si-pfo). No threads, no executor overhead.
+            for msg in to_process:
+                mid, result, err = _classify_and_write(msg, out)
+                with progress_lock:
+                    if err is not None:
+                        summary["errors"] += 1
+                        print(f"  ERROR on {mid}: {err}", file=sys.stderr)
+                    else:
+                        summary["processed"] += 1
+                        summary["predictions"].append((mid, result["prediction"], result["p_positive"]))
+                        if summary["processed"] % 50 == 0:
+                            print(f"  [{summary['processed']}] last id {mid}", file=sys.stderr)
+        else:
+            # Concurrent dispatch via thread pool. Each thread does its own
+            # classify_one() call and writes its result under write_lock.
+            # Saturation ceiling on the homelab is around concurrency=32-64;
+            # higher values just add queueing latency without throughput gain.
+            with ThreadPoolExecutor(max_workers=concurrency) as ex:
+                futures = {ex.submit(_classify_and_write, msg, out): msg for msg in to_process}
+                for fut in as_completed(futures):
+                    mid, result, err = fut.result()
+                    with progress_lock:
+                        if err is not None:
+                            summary["errors"] += 1
+                            print(f"  ERROR on {mid}: {err}", file=sys.stderr)
+                        else:
+                            summary["processed"] += 1
+                            summary["predictions"].append((mid, result["prediction"], result["p_positive"]))
+                            if summary["processed"] % 50 == 0:
+                                print(f"  [{summary['processed']}/{len(to_process)}] last id {mid}", file=sys.stderr)
     return summary
 
 
@@ -495,12 +573,27 @@ def main():
                         "Ignored unless --prompt-variant=current_baseline.")
     p.add_argument("--prompt-variant", choices=PROMPT_VARIANTS, default="current_baseline",
                    help="Frozen variants per the si-clz pre-reg (commit c364b64).")
+    p.add_argument("--concurrency", type=int, default=32,
+                   help="Number of concurrent in-flight requests to vLLM. Default 32 "
+                        "(the homelab saturation point). Set to 1 for strictly sequential "
+                        "dispatch (preserves the si-pfo noise model; ~7x slower).")
+    p.add_argument("--no-logprobs", dest="logprobs", action="store_false", default=True,
+                   help="Disable logprobs entirely. p_positive falls back to 0.999/0.001 "
+                        "from the binary prediction. Predictions JSONL becomes ~98%% smaller. "
+                        "Use for production runs that don't need calibration data.")
+    p.add_argument("--top-logprobs", type=int, default=10,
+                   help="Number of top alternative tokens per position when logprobs are on. "
+                        "Default 10 preserves the existing extract_p_positive behavior; 2 is "
+                        "the practical floor (still finds the alternative true/false token most "
+                        "of the time) and shrinks responses ~70%%.")
     args = p.parse_args()
     print(f"Classifying messages from {args.corpus_dir} -> {args.out}", file=sys.stderr)
     print(f"Prompt variant: {args.prompt_variant}  hash: {prompt_hash(args.prompt_variant)}  quote_depth={args.quote_depth}", file=sys.stderr)
+    print(f"Concurrency: {args.concurrency}  logprobs: {args.logprobs}  top_logprobs: {args.top_logprobs}", file=sys.stderr)
     t0 = time.time()
     summary = run(args.corpus_dir, args.out, limit=args.limit,
-                  quote_depth=args.quote_depth, prompt_variant=args.prompt_variant)
+                  quote_depth=args.quote_depth, prompt_variant=args.prompt_variant,
+                  concurrency=args.concurrency, logprobs=args.logprobs, top_logprobs=args.top_logprobs)
     elapsed = time.time() - t0
     print(f"\nDone in {elapsed:.1f}s. Processed: {summary['processed']}, Skipped: {summary['skipped']}, Errors: {summary['errors']}", file=sys.stderr)
     n_pos = sum(1 for _, pred, _ in summary["predictions"] if pred)
