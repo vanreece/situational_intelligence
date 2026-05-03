@@ -118,7 +118,71 @@ This bead deliberately scopes to the *cheap-tier baseline* on Hadoop. The cost-t
 - The subagent must not see this pre-reg block (the predictions and decision-rule text would prime its labels).
 - The cheap-tier classifier run uses the frozen v2_elided variant. No prompt edits.
 
-### Results *(commit this block after running)*
+### Results
+
+**Headline:** The detector **does not transfer cleanly** at the cheap tier. F1 = **0.359** on Hadoop common-dev 2014, materially below Cassandra's expanded-labels baseline of 0.556, and below the pre-registered "generalizing" band of [0.46, 0.66]. Decision-rule branch fired: **over-fit to Cassandra** (Hadoop F1 < 0.46). Pool-direct precision is high (0.882) but extrapolated recall collapses to **0.226** — the cheap-tier is firing rarely on Hadoop (17 model-positives = 1.3% of corpus, versus Cassandra's 6.6%) and missing a long tail of substantively-positive proposals.
+
+**Counts:**
+
+| metric | value |
+|---|---|
+| Filtered corpus | 1355 messages |
+| Model-positives (cheap-tier) | 17 (1.3%) |
+| Pool-direct: TP / FP | 15 / 2 |
+| Pool-direct precision | 0.882 (Wilson 95% CI 0.66 – 0.97) |
+| Random sample (NEG predictions) | 50 messages |
+| Random sample TP (FN) / TN | 2 / 48 |
+| FN rate in random sample | 0.04 (Wilson 95% CI 0.011 – 0.135) |
+| Extrapolated FN over remaining 1288 | 51.5 |
+| Estimated total FN | 51.5 |
+| Extrapolated recall | 0.226 (95% CI 0.080 – 0.513) |
+| **F1** | **0.359** |
+| Brier | 0.0596 |
+
+**Per-FP analysis (2/17 = 12% FP rate, vs Cassandra's 0%):** both FPs are administrative completion notices on already-planned releases.
+- `99B9A325` (Re: Thinking ahead to 2.4): "Forgot to add… Committers: I've created version '2.5.0' in jira with the expectation that most things will now commit to that version." — bookkeeping note that a JIRA version exists. The schedule itself was announced in the parent message; this is the JIRA-side mechanic.
+- `CAFiYk=quX` (Re: Next releases): "This merge to branch-2 is complete. The changes have been merged to branch-2 and target version set to 2.4.0 (r1556076)." — completion notification with version-target setting on a deliverable that was already in flight.
+
+Both FP shapes are absent from the Cassandra corpus because Cassandra doesn't have Hadoop's per-issue JIRA-version-target ritual. The cheap-tier reads "version set to 2.4.0" as a version-target shift even when it's the deliverable hitting its planned target. **U3 finding:** the cheap-tier transfers its FP shapes domain-specifically — Hadoop's JIRA version conventions create a class of false-positive that the v2 rubric should but doesn't anti-anchor against.
+
+**Per-FN analysis (2 in random sample, ~52 extrapolated total):** the dropped TPs are **structurally similar** to Cassandra's "NEW-version-disambiguation" failure mode, but the surface forms are distinct.
+- `4E0B02FE` (Re: Thinking ahead to hadoop-2.7) — Arun: "How about planning on hadoop-2.8 by late Jan? Thoughts?" — a one-line schedule proposal in a reply. Short content + reply-shape both hurt the cheap-tier's confidence.
+- `FA27F268` (Re: Logistics for releasing 2.4) — Arun: "I can abandon the 2.3rc, and then release current branch-2 as 2.3. Would that be better?" — a question-form proposal to substantially redefine what 2.3 is. The interrogative phrasing is exactly the shape the rubric calls "proposal" but the cheap-tier calls "discussion."
+
+So: **both Hadoop FNs are short replies in long threads where the schedule-change semantics depend on what the previous message in the thread was proposing**. This is the same shape as Cassandra's dropped TPs (where p_positive sat near 0.5 and the model anti-anchored on disambiguation features) — confirming the cheap-tier's known reply-message + thread-context weakness is **domain-general**, not a Cassandra peculiarity.
+
+**Pre-reg accuracy table:**
+
+| metric | predicted | observed | hit? |
+|---|---|---|---|
+| Cheap-tier model-positives | 30–150 | 17 | **no** (well below low end) |
+| Pool-direct precision | 0.70–0.95 | 0.882 | yes |
+| Extrapolated recall | 0.40–0.75 | 0.226 | **no** (well below low end) |
+| F1 | 0.50–0.85 | 0.359 | **no** (below low end) |
+| Hadoop F1 within ±0.10 of Cassandra's 0.556 | yes | no (0.359 = -0.197) | **no** |
+
+The qualitative direction (precision OK, recall collapses) is correct, but the magnitude was mis-predicted: I expected Hadoop's commercial-vendor pressure to *increase* schedule chatter and reach the cheap-tier's vocabulary; instead the cheap-tier fires *less* on Hadoop while missing a larger latent positive base. The 1.3% model-positive rate (versus Cassandra's 6.6%) is the most surprising number — Hadoop has *more* explicit release coordination by raw count of pool-eligible threads, but it lives in long replies and short proposals the cheap-tier doesn't recognize.
+
+**Decision-rule branch fired:** **over-fit to Cassandra**. Hadoop F1 = 0.359 < 0.46. Per pre-reg: do not retune the rubric in this bead; document findings; file follow-ups for rubric-adaptation work.
+
+**Subject-marker convention findings (informs si-03o):**
+
+- `[VOTE]`: **287 occurrences** in 2014 — heavily used, same convention as Cassandra. The si-03o cost-tier escalation P2 criterion that keys on `[VOTE]` will transfer.
+- `Proposal:`: **0 occurrences**. Hadoop does not use this prefix. The si-03o P2 criterion that keys on `Proposal:` will NOT transfer.
+- `[DISCUSS]`: **66 occurrences** — Hadoop's analog for governance/rubric-change discussion. Likely the appropriate Hadoop substitute for `Proposal:` in the si-03o P2 criterion, but this is a hypothesis that needs its own validation.
+- `Thinking ahead`: **62 occurrences** — Hadoop's dominant convention for forward-looking schedule discussion. This is the single most recoverable signal a Hadoop-adapted P2 criterion could key on (and many of the model-positives in this run sit in `Thinking ahead` threads, suggesting the cheap-tier is already partially using subject as evidence).
+
+**Si-03o flag:** the `Proposal:` half of the P2 criterion does not transfer as-is. Recommend si-03o either (a) drop the `Proposal:` half and keep `[VOTE]` only, (b) substitute `[DISCUSS]` and/or `Thinking ahead`, or (c) define the P2 criterion at the abstraction level "subject contains forward-looking schedule marker" and let each corpus instantiate it. Not a blocker — `[VOTE]` alone covers a substantial fraction.
+
+**Headline U1 read:** The architectural commitment to per-detector-empirical cost-tier escalation gets first cross-corpus evidence: **the cheap-tier does not transfer well enough on its own to be the production detector for Hadoop.** The pool-direct precision (0.882) is workable as the high-confidence band of a tiered system, but recall (0.226) means roughly three-quarters of Hadoop's substantive schedule discussions would slip past a cheap-tier-only deployment. Cost-tier escalation (the upcoming si-03o) is now empirically motivated, not just architecturally motivated.
+
+**Follow-ups (filed as bd issues):**
+
+- si-03o: frontier-on-Hadoop + adapted P2 criterion. Key adaptation question: substitute `Proposal:` with `[DISCUSS]` / `Thinking ahead`, or drop entirely?
+- (idea) Hadoop-specific FP anti-anchor for the v2 rubric: "JIRA version-target setting on already-shipped or merged work" should be NEG. Worth one rubric iteration once the frontier baseline is in.
+- (idea) Reply-shape weakness in the cheap-tier on schedule_change_announcement is now confirmed cross-domain. The typed-tag substrate (si-qdf) was meant to address this; si-q0i tried few-shot. Both have been mixed. Consider whether a context-augmented prompt (showing the parent-message thesis) is worth a foray.
+
+### Outer batch Results *(commit this block after running)*
 
 **Question:** Three independent forays dispatched as a parallel batch under the autonomous-execution principle. Each addresses a different unknown but they share no resource conflicts.
 
