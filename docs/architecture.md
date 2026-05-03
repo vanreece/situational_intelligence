@@ -100,6 +100,24 @@ Reading between the lines — detecting that someone is more worried than their 
 
 The most valuable thing the system can do is identify decisions being made under information gaps that exist within the organization but haven't propagated to the decision-maker. This is the class-three failure pattern — context available, decision misaligned with available context. The system's primary job is making latent knowledge visible to people who would benefit from it.
 
+### Cost-tier escalation, where empirically justified
+
+The Classify and Extract layers run cheap, narrow models at corpus volume. The Synthesize layer runs capable models on small structured inputs. The architectural seam between them — where a cheap-tier classifier or extractor *might* miss cases that a capable model would catch — is where cost-tier escalation lives.
+
+**The pattern:** the cheap tier runs the full corpus. A separate borderline-pool rule selects a subset of cheap-tier outputs that are more likely to be wrong. The capable tier re-runs on that subset only. Combined output is `cheap-tier on the rest, capable tier on the borderline pool`. Cost is bounded by `pool_size / corpus_size`; quality approaches the capable-tier ceiling if the borderline rule is well-targeted.
+
+**The guardrail — empirical validation is a precondition, not a side effect.** Cost-tier escalation is allowed only where we have measured the F1 (or equivalent quality metric) gap between cheap-only, escalated, and capable-only on real ground truth, and concluded that the *escalated* gap to capable-only is acceptable for the detector's intended use. "Acceptable" is detector-specific:
+
+- A high-recall detector for vendor-silence-as-warning may need <0.02 F1 loss vs capable-only because false negatives are the value-prop violation.
+- A precision-leaning routine-status filter may tolerate 0.05+ F1 loss because false positives are the cost.
+- A discovery-mode pass that only feeds the synthesis layer may accept higher loss because downstream synthesis re-evaluates anyway.
+
+The threshold is set per-detector by the operator, not by the architecture. What the architecture commits to: **no cost-tier escalation in production without a labeled-eval comparison establishing the loss is within tolerance.**
+
+**Borderline-pool rules are content-structural by default, not confidence-based.** Cheap-tier classifiers at temperature=0 with constrained-decoding (guided JSON, etc.) often produce sharply bimodal logprob distributions with no useful "uncertainty band" — the chosen-token logprob saturates at 0 and probabilities collapse to ~0 or ~1. A borderline rule that depends on `p_positive ∈ (band)` may have an empty pool. Default to subject patterns, body-shape filters, structural cues that an in-domain reader can derive from the message itself, not from the cheap model's confidence. Use logprob bands only after measuring the distribution and confirming an actual band exists.
+
+**The architectural commitment is:** define the eval, define the tolerance, measure, then escalate. Not: "always escalate ambiguous cases" or "never escalate." First validated 2026-05-03 on `schedule_change_announcement` (si-bm1): a 33%-of-corpus borderline pool reaches F1=0.960 vs capable-only 0.963 — a 0.003 gap that's well within the operator's tolerance for this detector. Each new detector that adopts the pattern repeats the measurement.
+
 ## What we deliberately do not do
 
 - **No general-purpose AI assistant.** The system has narrow, well-defined responsibilities. It does not chat about arbitrary topics.
@@ -108,6 +126,7 @@ The most valuable thing the system can do is identify decisions being made under
 - **No multi-objective prompts.** Single-thesis discipline is non-negotiable.
 - **No prose-as-state.** Structured intermediate representations everywhere. The LLM queries state through tools, not by re-parsing.
 - **No cross-tenant data mixing.** Eval corpora are per-customer or per-program. We do not train detectors on customer A's data and serve them to customer B without explicit consent.
+- **No cost-tier escalation without an empirical F1 gap measurement.** The pattern is allowed (see "Cost-tier escalation, where empirically justified") but only after a labeled-eval comparison demonstrates the escalated quality is within the detector's tolerance. Escalating "because it seems likely to help" is not allowed; the savings are real but the silent quality loss can be too.
 
 ## Architectural decisions that are deferred
 
