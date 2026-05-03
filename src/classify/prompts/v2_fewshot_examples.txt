@@ -1,0 +1,266 @@
+
+
+WORKED EXAMPLES (apply the same rubric to the actual message you are reviewing):
+
+EXAMPLE 1 (POSITIVE — NEW-version introduction):
+From: Sylvain Lebresne <sylvain@datastax.com>
+Subject: Re: [VOTE PASSED] Release Apache Cassandra 1.2.17
+Date: 2014-07-02T08:37:54+00:00
+
+On Tue, Jul 1, 2014 at 8:16 PM, Jonathan Ellis <jbellis@gmail.com> wrote:
+
+> [QUOTED]
+> [QUOTED]
+
+I'd prefer doing a quick re-roll of 1.2.18 (which I'll start shortly) and
+simply sending a small warning email to the user list (which I'll do) but
+leaving 1.2.17 be until we've replaced it. While the source don't compile
+with java 6, the binaries are still compiled with '-target 1.6' and so will
+still work fine with 1.6. The only caveat being that the cloudstack snitch
+will not work since it'll throw a ClassNotFoundException at runtime, but
+it's new to 1.2.17 anyway so it's not like it'll break anything existing.
+
+--
+Sylvain
+
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> > [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+
+
+EXPECTED: {"is_schedule_change_announcement": true, "evidence_quote": "I'd prefer doing a quick re-roll of 1.2.18 (which I'll start shortly)", "rationale": "Author proposes rolling a NEW version 1.2.18 (1.2.17 was the last announced); per rubric, re-rolls that introduce a new version not previously planned are positive. Evidence is in author's new content."}
+
+---
+
+EXAMPLE 2 (POSITIVE — NEW-version reference (question form)):
+From: Michael Shuler <michael@pbandjelly.org>
+Subject: Re: [VOTE PASSED] Release Apache Cassandra 1.2.17
+Date: 2014-07-01T18:09:09+00:00
+
+It seems a bit of a flaw in our test builds allowed us to miss a problem 
+with this release. Cassandra 1.2.x is intended to remain java_1.6 
+compatible, to the best of my knowledge. Unfortunately, CASSANDRA-7147 
+includes a bit of code that breaks the build when using Oracle JDK 1.6.
+
+Should this be fixed for a 1.2.18 re-roll?
+
+https://issues.apache.org/jira/browse/CASSANDRA-7147
+
+-- 
+Michael
+
+On 06/30/2014 03:22 AM, Sylvain Lebresne wrote:
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> [QUOTED]
+
+
+EXPECTED: {"is_schedule_change_announcement": true, "evidence_quote": "Should this be fixed for a 1.2.18 re-roll?", "rationale": "New content (above the quoted vote thread) introduces a previously-unplanned version 1.2.18, which the rubric explicitly cites as a POSITIVE example of a re-roll introducing a new version."}
+
+---
+
+EXAMPLE 3 (NEGATIVE — vote-failure reroll (procedural)):
+From: Sylvain Lebresne <sylvain@datastax.com>
+Subject: [VOTE CLOSED] Release Apache Cassandra 2.0.8
+Date: 2014-05-13T12:03:03+00:00
+
+Fair enough, I can't ignore Brandon's mighty -1, this vote is closed. We'll
+re-roll once CASSANDRA-6285 has been fixed and tested.
+
+--
+Sylvain
+
+On Sat, May 10, 2014 at 4:04 AM, Brandon Williams <driftx@gmail.com> wrote:
+
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> > [QUOTED]
+> [QUOTED]
+> > [QUOTED]
+> [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> [QUOTED]
+
+
+EXPECTED: {"is_schedule_change_announcement": false, "evidence_quote": null, "rationale": "Closes 2.0.8 vote and announces reroll once CASSANDRA-6285 is fixed; per rubric, vote-failure reroll of an already-planned release is procedural."}
+
+---
+
+EXAMPLE 4 (NEGATIVE — vote-failure reroll (procedural, distinct phrasing)):
+From: Sylvain Lebresne <sylvain@datastax.com>
+Subject: [VOTE CLOSED] Release Apache Cassandra 2.0.10
+Date: 2014-08-11T14:34:54+00:00
+
+Ok, ok, closing this vote for now. We'll re-roll as soon as the pig stuff
+are fixed.
+
+On Fri, Aug 8, 2014 at 10:07 PM, Jeremiah D Jordan <jeremiah@datastax.com>
+wrote:
+
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> [QUOTED]
+> [QUOTED]
+
+
+EXPECTED: {"is_schedule_change_announcement": false, "evidence_quote": null, "rationale": "Closes 2.0.10 vote and announces reroll once pig stuff is fixed; per rubric, vote-failure rerolls are procedural."}
+
+---
+
+EXAMPLE 5 (NEGATIVE — vote-period adjustment (mechanic)):
+From: Sylvain Lebresne <sylvain@datastax.com>
+Subject: [VOTE RESURRECTED] Release Apache Cassandra 1.2.16
+Date: 2014-03-27T14:44:53+00:00
+
+So, seems like CASSANDRA-6924 was kind of a false alarm. And since I've
+never dropped
+the artifacts and no commit has been done on 1.2 since then, I propose to
+just resurrect the
+vote. Since the vote had initially ran for 2 days, I'm going to propose
+that we only extend for
+just 24h more hours (provided we get enough +1 by then). Please do re-vote
+however.
+
+--
+Sylvain
+
+On Wed, Mar 26, 2014 at 9:02 AM, Sylvain Lebresne <sylvain@datastax.com>wrote:
+
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> > [QUOTED]
+> [QUOTED]
+> [QUOTED]
+
+
+EXPECTED: {"is_schedule_change_announcement": false, "evidence_quote": null, "rationale": "Resurrects the existing 1.2.16 vote with a vote-period adjustment ('only extend for just 24h more hours'); per rubric, vote-period adjustments and resurrecting an in-flight vote are procedural, not a schedule change."}

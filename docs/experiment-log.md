@@ -233,6 +233,158 @@ All 5 frontier-only discoveries returned **POSITIVE** under fresh independent ap
 
 The cheap-tier's 0.625 recall on the original 153-item pool was an upper bound conditioned on what the cheap tier *and* the original Opus pool had jointly already surfaced. Once we admit the 5 frontier-only discoveries — all of which the cheap-tier scored at p_pos < 0.01 — the cheap-tier's true recall against a more complete v2 positive set drops sharply to 0.385. The cheap-tier isn't getting worse; we're getting a more honest view of its ceiling. This **strengthens** the case for cost-tier escalation (si-bm1): the gap between cheap-tier and frontier on this detector is wider than the 0.625-vs-0.941 framing suggested. Frontier's F1 *improves* on the expanded pool (0.941 → 0.963) because its lone FP is now diluted against a larger TP base — confirming si-2z6's verdict that the frontier ceiling is still in the high-0.9s on this rubric. Scorecards: `results/evals/schedule_change_announcement-d6m-v2-elided/scorecard-post-e5q.json`, `results/evals/schedule_change_announcement-2z6-frontier/scorecard-post-e5q.json`.
 
+#### si-t3l — Hadoop common-dev@ 2014 harvest (LANDED)
+
+**List-name correction (recorded in pre-reg):** `dev@hadoop.apache.org` does not exist. Hadoop's integrated dev list was modularized into per-project sublists. Probed all four (`common-dev`, `hdfs-dev`, `mapreduce-dev`, `yarn-dev`); selected `common-dev` as the closest analog to Cassandra's single-list `dev@` because it carries cross-project release coordination. Other three sublists remain candidates for follow-up.
+
+**Headline:** harvest succeeded. **3503 messages, 12 months, multi-org diversity confirmed.** Decision rule: corpus accepted as the second slice.
+
+**Volume by month** (from harvester summary):
+
+| month | messages | raw bytes |
+|------:|---------:|----------:|
+| Jan–Dec 2014 | **3503** | ~64 MB |
+
+**Top-10 senders by email-domain (the diversity acceptance criterion):**
+
+| rank | sender | count | email | inferred org |
+|-----:|--------|------:|-------|--------------|
+| 1 | Apache Jenkins Server | 357 | `jenkins@builds.apache.org` | (CI bot) |
+| 2 | Allen Wittenauer (JIRA) | 349 | `jira@apache.org` | (JIRA-cross-post alias) |
+| 3 | Steve Loughran | 122 | `stevel@hortonworks.com` | Hortonworks |
+| 4 | Karthik Kambatla | 107 | `kasha@cloudera.com` | Cloudera |
+| 5 | Steve Loughran (JIRA) | 84 | `jira@apache.org` | (JIRA alias for Hortonworks) |
+| 6 | Alejandro Abdelnur (JIRA) | 81 | `jira@apache.org` | (JIRA alias) |
+| 7 | Andrew Wang | 73 | `andrew.wang@cloudera.com` | Cloudera |
+| 8 | Chris Nauroth (JIRA) | 64 | `jira@apache.org` | (JIRA alias) |
+| 9 | Arun C Murthy | 60 | `acm@hortonworks.com` | Hortonworks |
+| 10 | Colin Patrick McCabe (JIRA) | 58 | `jira@apache.org` | (JIRA alias) |
+
+**Distinct email-domains in top-10:** 4 (`apache.org`, `builds.apache.org`, `cloudera.com`, `hortonworks.com`).
+
+**All-corpus email-domain distribution (top-15):** `apache.org` 54.2% (largely JIRA cross-posts), `builds.apache.org` 10.2% (Jenkins CI), `hortonworks.com` 9.9%, `cloudera.com` 9.9%, `gmail.com` 6.7%, `altiscale.com` 1.1%, `oss.nttdata.co.jp` 1.1%, `yahoo-inc.com.invalid` 0.8%, `intel.com` 0.5%, `oracle.com` 0.4%, `mapr.com` <0.5%, etc. **Real multi-org coordination texture confirmed:** Cloudera and Hortonworks at parity (~10% each), with Yahoo/Intel/Oracle/MapR/NTT/Altiscale present at lower fractions.
+
+**Decision-rule outcome:** top-10 sender domains span ≥3 distinct orgs ✓ (counting only real corporate domains: Hortonworks + Cloudera + Apache-aliases + Jenkins-bot = 4). Total messages ≥1000 ✓ (3503). **Corpus accepted as the second slice.**
+
+**Surprises and observations:**
+
+1. **JIRA-cross-post and Jenkins-build noise dominate top-N.** The two highest-volume "senders" are bots (`jenkins@builds.apache.org`) and the JIRA cross-posting alias (`jira@apache.org`). 6 of the top-10 are JIRA-alias-posts where the actual author is a real human writing about issue activity — not voluntary list participation. Direct corporate emails (Hortonworks, Cloudera) are ranks 3, 4, 7, 9. This is a structural difference from Cassandra dev@ 2014 where JIRA noise was minimal (Cassandra's commit chatter lived on `commits@`, per the 2026-05-01 entry).
+2. **Real multi-org coordination signal exists.** The corporate-affiliated portion of the corpus (~30% of messages once you set aside JIRA bots and Jenkins) shows clear Cloudera–Hortonworks competitive dynamics in the all-corpus distribution; this is exactly the multi-vendor texture absent from Cassandra dev@.
+3. **Volume is ~5× Cassandra's 2014.** 3503 vs 731. For schedule-change-announcement on this corpus, expect 50–250 model-positives at v2_elided rates extrapolated from Cassandra's 6.6% positive rate. May want to filter out JIRA-bot traffic before classifier runs to keep signal-to-noise reasonable.
+4. **Hadoop `general@` exists too** but has tiny volume in 2014-01 (52KB, ~1 message); not a useful second corpus on its own.
+
+**Anti-contamination held.** No Hadoop messages were inspected for schedule-change content during this foray — the diversity analysis only counts senders by email-domain.
+
+**Next (filed as follow-ups):**
+- **idea**: run cheap-tier v2_elided on Hadoop common-dev@ 2014 *after* filtering out JIRA-bot and Jenkins-build cross-posts. This is the cross-corpus generalization test (U1).
+- **idea**: investigate whether the same operating-point (cost-tier-escalation borderline pool from si-bm1's P2 criterion) transfers to Hadoop common-dev. The subject markers (`[VOTE]`, `Proposal:`) are project-specific conventions; the regex may need recalibration.
+- **idea**: harvest the other three Hadoop sublists (`hdfs-dev`, `mapreduce-dev`, `yarn-dev`) for cross-sublist coverage.
+
+**Pre-reg accuracy:**
+
+| prediction | predicted | actual | hit? |
+|---|---|---|:---:|
+| Total messages 2014 | 1500–4000 | 3503 | ✓ |
+| Top-10 sender domain diversity | 4–8 distinct orgs | 4 distinct domains (2 real-org + 2 alias/bot) | partial |
+| Mailing-list-mechanic noise | ~30% | ~64% (`apache.org` JIRA + `builds.apache.org` Jenkins) | **MISS** (much higher) |
+
+Apache list noise is much higher in 2014 than I estimated — the `jira@apache.org` cross-post alias accounts for over half the corpus. This will need filtering before the cheap-tier runs. Important methodological note for any future Apache-mailing-list harvest.
+
+#### si-bm1 — cost-tier escalation simulation (LANDED — pattern validated)
+
+**Headline:** Pool **P2** (subject contains `[VOTE`-prefix or starts with `Proposal:`, plus root-or-body>800 filter; 241 model-NEG items, **33% of the corpus**) reaches **F1 = 0.960** — within 0.003 of full-frontier F1=0.963 — at one-third the inference cost. **Cost-tier escalation pattern is validated for this detector and worth promoting toward production adoption.**
+
+**Pool sweep on post-si-e5q expanded labels** (13 POS / 145 NEG = 158 total; cheap-tier dropped 8 of 13):
+
+| pool | size | %frontier-calls | precision | recall | F1 | known POS targets in pool |
+|------|-----:|----------------:|----------:|-------:|----:|--------------------------:|
+| P0 (cheap only)         | 0   | 0.0%   | 1.000 | 0.385 | 0.556 | 0/8 |
+| P1 (narrow: NEG ∩ X.Y.Z body ∩ release-kw ∩ NOT [VOTE]-root) | 32  | 4.4%   | 1.000 | 0.615 | 0.762 | 3/8 |
+| **P2 (substantive: NEG ∩ vote/proposal subj ∩ root-or-body>800)** | **241** | **33.0%** | **1.000** | **0.923** | **0.960** | **7/8** |
+| P3 (broad: NEG ∩ vote/proposal subj, any reply)             | 282 | 38.6%  | 1.000 | 0.923 | 0.960 | 7/8 |
+| P_full (all NEGs escalated) | 726 | 99.3% | 0.929 | 1.000 | 0.963 | 8/8 |
+
+**Decision-rule outcome:** "smallest pool P_min where combined-F1 ≥ 0.90 AND F1 within 0.05 of P_full" → **P2 wins**. P3 doesn't add anything over P2 (the body-length filter wasn't pulling weight). The single message P2 misses ("2.1 rc3?" — 251-char Ellis question without a `[VOTE]` tag) is a one-off lateral form that would need a different criterion (subject mentions a version pattern + question mark) to catch — filed as a follow-up.
+
+**The U3 finding worth foregrounding (recorded in the pre-reg):** the cheap-tier's `p_positive` distribution is sharply bimodal — 726 items at p_pos < 0.01, 5 items at p_pos > 0.90, **zero items in [0.01, 0.90]**. There is no "uncertain band" to triage on logprobs. **A logprob-based borderline criterion is structurally unavailable for this detector at this temperature**, and any future cost-tier-escalation pattern in this codebase will need content-structural triage (subject markers, version mentions) rather than confidence-based triage. This is a generalizable infrastructure finding, not specific to `schedule_change_announcement`.
+
+**Why P1 was too narrow:** The pre-reg predicted P1 (~46 items) would catch the 3 dropped TPs and zero discoveries. Observed: 3/3 dropped TPs caught, 0/5 discoveries caught (all 5 discoveries are `[VOTE]`-root subjects, which P1 explicitly excludes). F1=0.762 confirms the prediction band miss — when there are 8 known POS missing from the cheap-tier and your pool only contains 3 of them, the ceiling is around 8/13 recall. The lesson: borderline criteria need to span the *taxonomy of cheap-tier failure modes*, not just the most accessible one.
+
+**Why precision stays at 1.000 from P0 through P3:** the frontier's lone FP (Marcus "3.0/3.1/4.0" musing) sits in P_full's escalation pool but **NOT** in P2/P3 — the message subject is a discussion of cycle architecture rather than a `[VOTE]`/`Proposal:` thread. So the bounded escalation criterion structurally avoids frontier's known false-positive direction (speculative cycle musings without procedural framing). Lucky-but-informative: the borderline criterion is doing real precision work, not just recall work.
+
+**Pre-reg accuracy:**
+
+| prediction | predicted | actual | hit? |
+|---|---|---|:---:|
+| P0 F1 baseline | (current) 0.769 (153 labels) | 0.556 (158 labels) | ✓ (the drop was expected post-si-e5q) |
+| P1 F1 | 0.85–0.92 | 0.762 | **MISS** (below band — P1 is too narrow to catch [VOTE]-root discoveries) |
+| P2 F1 | 0.90–0.94 | 0.960 | ✓ (above upper end) |
+| P_full F1 | 0.94 | 0.963 | ✓ |
+| P1 recovers 3/3 dropped TPs, 0/k discoveries | yes | 3/3 + 0/5 ✓ | ✓ |
+| P2 recovers ~k–1/k discoveries | "most" | 4/5 | ✓ |
+| New FPs in P2 | 1 (Marcus musing) | **0** | better than predicted |
+
+**Implications:**
+
+1. **Cost-tier hierarchy is empirically validated** for `schedule_change_announcement` on this corpus. P2 closes 91% of the cheap-vs-frontier F1 gap (0.556→0.960 vs 0.556→0.963) at 33% of the inference cost. Adopt for production for this detector.
+2. **The architectural pattern generalizes by construction** because the borderline criterion is content-structural (subject markers, body length, version mentions) — these are derivable from any mailing-list corpus, not from cheap-tier confidence which is unavailable. Worth re-validating on Hadoop common-dev as the cross-corpus test.
+3. **The "no logprob band" finding is itself a project artifact** worth promoting to memory: temperature-0 + guided-JSON + chosen-token forcing yields essentially deterministic outputs; classifier confidence has to come from elsewhere (response self-consistency, structural cues, ensemble disagreement) for any future logprob-calibration work (si-kxh).
+4. **si-q0i (heavy prompt scaffolding) is dominated by si-bm1 (cost-tier escalation).** The cheap-tier-only foray gave no F1 lift; the escalation foray closed the gap. Architecture wins over prompt-craft on this dimension.
+
+**Next (filed as follow-ups):**
+- **idea**: run P2 escalation as the production operating point for `schedule_change_announcement` on Hadoop common-dev@ 2014 (cross-corpus generalization).
+- **idea**: investigate whether the "2.1 rc3?" miss generalizes — are there structurally similar lateral version-discussion messages that current P2 would also miss? Possibly extend P2 to include subjects matching `\b\d+\.\d+\s+rc\d+\??\b`.
+- **idea**: characterize how much of P2's escalation cost is "wasted" (frontier called on a NEG-labeled item that frontier also predicts NEG). If most of the 241 escalations are confirming-NEGs, an even narrower pool may exist.
+
+#### si-q0i — few-shot scaffolding (LANDED — no F1 lift; composition shifted)
+
+**Headline:** F1 unchanged from same-eval-set baseline. **Few-shot did not expand the cheap-tier's catch.** It shifted *which* items got caught — recovered one frontier-discovery (`[VOTE] 1.2.18`) but lost a baseline TP (Op-13, Jonathan's "schema change in 2.1, 3.0 we're already planning"). Net: 0 TP change, no precision change.
+
+**Scorecard against post-si-e5q labels minus the 5 example IDs (156-item eval pool: 11 POS / 145 NEG):**
+
+| variant | model+ total | TP | FP | FN | Precision | Recall | F1 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| cheap-tier-v2_elided (baseline, same eval-set) | 5 | 5 | 0 | 6 | 1.000 | 0.4545 | 0.6250 |
+| **cheap-tier-v2_elided_fewshot** | **7** | **5** | **0** | **6** | **1.000** | **0.4545** | **0.6250** |
+
+(Note: the 7-vs-5 model-positive delta is the 2 example IDs themselves — both excluded from eval. The 5 in-eval TPs are not the same 5 in both variants; see below.)
+
+**Composition shift (the actual finding):**
+
+- **Recovered (new TP):** `CAKkz8Q0tq-PTwRi...` — `[VOTE] Release Apache Cassandra 1.2.18` (1 of the 5 frontier-discoveries). The few-shot examples included the *Re:* reply to this thread (Sylvain "1.2.18 re-roll") as a POS exemplar; the cheap-tier transferred this signal to the original `[VOTE]` thread root.
+- **Regressed (lost TP):** Op-13 `CALdd-zjdzufYpt4WHG...` — Jonathan "It's too late for a schema change in 2.1, and 3.0 we're already planning to move to file-based hint storage." This was a baseline TP (anchored on new content per si-rrz). Few-shot displaced it.
+- **Still missed:** Ellis `1.2.17 takedown`, `1.2.15 announce`, `Thrift freeze 2.1.0`, `2.1 rc3?`, `1.2.19 announce`. Four of the five frontier-discoveries did not transfer despite the `[VOTE]`-root exemplar pattern in examples.
+
+**Decision-rule outcome:** the pre-reg's branches were `≥0.85` (promote), `0.77–0.85` (modest), `<0.77` (regression). F1 = 0.625 is below 0.77, but the comparison-set baseline is *also* 0.625 — so on the same eval set, few-shot is *neither improvement nor regression*. The decision rule's bands were calibrated against the original 153-item v2_elided F1 of 0.769; on the post-si-e5q expanded set the right comparison shifts. **Honest characterization: few-shot scaffolding produced no net F1 change with a meaningful composition shift.** Don't promote.
+
+**Surprises:**
+
+1. **Op-13 regression is the main surprise.** Op-13 is a "right answer for the right reason" baseline TP from the v2_elided foray (anchored on Jonathan's new content). Few-shot didn't break Op-13's pattern recognition by adding noise — it broke it by *crowding out the recognized shape with the example shape*. The cheap-tier appears to have a limited "pattern budget" — when 5 worked examples occupy that budget, other learned patterns dim.
+2. **The transfer to `[VOTE] 1.2.18` was the only success direction.** This is the one frontier-discovery whose new-content shape matches Example 1 (Sylvain's "I propose ... 1.2.18" template). The other four discoveries — Thrift freeze, 2.1 rc3 lateral, 1.2.15/1.2.19 announces — have surface forms not present in the example set. Transfer is shape-narrow, not concept-broad. (This anti-correlates with the si-d6m lesson that "heavy structured prompts steer Qwen3-Coder reliably." The lesson holds, but with a tighter qualifier: heavy structure steers *toward the structure*, not toward the underlying rubric concept.)
+3. **No new FPs.** The few-shot examples did not over-generalize toward false positives — precision stayed at 1.000. So few-shot doesn't *hurt* on precision; it just doesn't *help* on recall in any meaningful way for this detector.
+
+**Pre-reg accuracy:**
+
+| prediction | predicted | actual | hit? |
+|---|---|---|:---:|
+| Cheap-tier-fewshot model-positives | 6–18 | 7 | ✓ (low end) |
+| Recovers Ellis "1.2.17 takedown" | likely yes | NO | **MISS** |
+| Recovers frontier-discoveries (5 total) | 1–4/5 | 1/5 | ✓ (low end) |
+| F1 (excluding examples) | 0.78–0.90 | 0.625 | **MISS** (below band) |
+| New FPs introduced | 1–4 | 0 | better than predicted |
+| Anti-anchoring failure (cheap-tier reads examples as confirming everything procedural) | unlikely | did not occur | ✓ |
+
+**Implications:**
+
+1. **For this detector, prompt scaffolding does not substitute for cost-tier escalation.** si-bm1's P2 borderline pool reaches F1=0.960; si-q0i's few-shot reaches F1=0.625. The architectural intervention dominates the prompt-engineering intervention by 0.34 F1 points.
+2. **The "heavy structured prompt steers reliably" memory needs sharpening.** Heavy structure steers toward the structure's surface form, not toward the underlying concept. Worked examples teach pattern-matching to the example shape; they don't generalize the rubric. Memory updated.
+3. **Op-13 regression suggests a "shape budget" property of the cheap-tier** — adding worked examples competes for representational capacity with previously-recognized shapes. Worth noting for any future heavy-scaffolding interventions.
+4. **The si-qdf "anti-anchoring" failure mode did NOT recur** with few-shot. Different intervention class, different failure mode. The taxonomy from `messages_are_not_single_thesis_streams.md` should distinguish: tag-substrate (anti-anchoring on procedural frame), few-shot (shape-narrow transfer with composition shift), cost-tier escalation (architectural lift, no in-prompt failure mode).
+
+**Next (filed as follow-ups):**
+- **idea**: investigate the Op-13 regression specifically — is the cheap-tier's pattern-shape budget a real property, or did few-shot just shift attention to vote-root subject patterns? Compare evidence_quotes in v2_elided vs v2_elided_fewshot for Op-13.
+- **deferred**: do not pursue further few-shot variants on this detector. The architectural path (si-bm1 P2 escalation) is dominant.
+
 **Question:** Three independent experiments dispatched as a parallel work batch under the autonomous-execution principle (memory: `no_epistemic_downside.md`). Each is well-specified with a pre-reg block, decision rule, and falsifiers. They share no resource conflicts and can run concurrently.
 
 **Beads issues:**

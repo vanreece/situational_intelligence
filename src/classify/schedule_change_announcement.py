@@ -145,6 +145,28 @@ Date: {date}
 
 EMPTY_VERSION_CONTEXT_PLACEHOLDER = "VERSION CONTEXT: (no Cassandra versions mentioned in this message)"
 
+
+# si-q0i: v2_elided_fewshot — same v2 system prompt + appended WORKED EXAMPLES section
+# drawn from the v2 OpusLabel pool (5 frozen example IDs: 2 NEW-version POS, 2
+# procedural-fallout NEG, 1 vote-mechanic NEG). Tests whether heavy structured
+# scaffolding (worked examples) can recover the 3 cheap-tier dropped TPs that
+# si-qdf's typed-tag substrate anti-anchored on.
+#
+# The examples text is pre-rendered (depth=2 quote elision applied to bodies)
+# and stored in src/classify/prompts/v2_fewshot_examples.txt so the prompt-hash
+# naturally captures the example content. Re-rendering is a deliberate two-step
+# procedure (regenerate file + new pre-reg) — not an automatic refresh.
+_FEWSHOT_EXAMPLES_PATH = Path(__file__).resolve().parent / "prompts" / "v2_fewshot_examples.txt"
+try:
+    _FEWSHOT_EXAMPLES_TEXT = _FEWSHOT_EXAMPLES_PATH.read_text(encoding="utf-8")
+except FileNotFoundError:
+    _FEWSHOT_EXAMPLES_TEXT = None  # variant unavailable; runtime check below
+
+SYSTEM_PROMPT_V2_FEWSHOT = (
+    SYSTEM_PROMPT_V2 + (_FEWSHOT_EXAMPLES_TEXT or "")
+) if _FEWSHOT_EXAMPLES_TEXT else None
+
+
 GUIDED_JSON_SCHEMA = {
     "type": "object",
     "properties": {
@@ -157,12 +179,18 @@ GUIDED_JSON_SCHEMA = {
 }
 
 
-PROMPT_VARIANTS = ("current_baseline", "new_only", "new_with_marked_quoted", "v2_strict", "v2_elided", "v2_elided_tagged")
+PROMPT_VARIANTS = ("current_baseline", "new_only", "new_with_marked_quoted", "v2_strict", "v2_elided", "v2_elided_tagged", "v2_elided_fewshot")
 
 
 def _system_prompt_for(variant: str) -> str:
     if variant == "new_with_marked_quoted":
         return SYSTEM_PROMPT + SYSTEM_PROMPT_MARKED_SUFFIX
+    if variant == "v2_elided_fewshot":
+        if SYSTEM_PROMPT_V2_FEWSHOT is None:
+            raise RuntimeError(
+                f"v2_elided_fewshot requires {_FEWSHOT_EXAMPLES_PATH} (not found)"
+            )
+        return SYSTEM_PROMPT_V2_FEWSHOT
     if variant in ("v2_strict", "v2_elided", "v2_elided_tagged"):
         return SYSTEM_PROMPT_V2
     return SYSTEM_PROMPT
@@ -236,11 +264,13 @@ def build_request(message: dict, quote_depth: int | None = None,
             from_raw=from_raw, subject=subject, date=date,
             body_text=body[:MAX_BODY_CHARS],
         )
-    elif prompt_variant == "v2_elided":
+    elif prompt_variant in ("v2_elided", "v2_elided_fewshot"):
         # v2_elided uses the same v2 system prompt as v2_strict, but each quoted
         # line's content is replaced with [QUOTED]. Tests whether the v2 precision
         # shortfall is entirely caused by anchoring on strong quoted text.
         # quote_depth filters lines beyond depth N; surviving quoted lines get elided.
+        # v2_elided_fewshot (si-q0i): identical body shape; the difference is in the
+        # system prompt — see SYSTEM_PROMPT_V2_FEWSHOT and _system_prompt_for().
         depth = quote_depth if quote_depth is not None else 999
         body = elide_quoted_lines(body, max_depth=depth)
         user_msg = USER_TEMPLATE.format(

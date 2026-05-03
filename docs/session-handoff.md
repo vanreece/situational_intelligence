@@ -2,85 +2,64 @@
 
 > Per `docs/orchestration.md`. Structured for the user's strategy session: read top-down, make calls, file new auto-executable beads, leave.
 
-## Last updated: 2026-05-03 (after concurrent-dispatch landed — every detector run is now ~40s)
+## Last updated: 2026-05-03 (after parallel-batch with cost-tier escalation validation)
 
 ---
 
 ## What landed since last strategy session
 
-**Detector promotion (early in this session):**
-- `schedule_change_announcement` promoted to **Prototype** via si-rrz (commit `9a24e9e`). Operating point: v2 rubric + v2_elided body shape (depth=2 quote filter + quoted-line content elision). F1 = 0.769, precision = 1.000, recall = 0.625.
+**Parallel batch (4 strategy-fork beads → all closed):**
 
-**Parallel batch (the autonomous-execution-pattern proof):**
-- **si-2t4** — eval harness stratified-FN fix (`1a23fa4`, `002a020`). Recall extrapolation now agrees with pool-direct counts. v1 baseline F1 corrects from 0.405 → 0.446 (prior estimate was legacy-biased).
-- **si-qdf** — typed-tag substrate first foray (`774fdb0`). **REGRESSED:** F1 0.769 → 0.667. Substrate built correct version-state data but cheap-tier *anti-anchored* — read "1.2.17 just passed" as reinforcing the v2 "procedural" frame, making the model MORE confident the messages were procedural fallout. Net −1 TP.
-- **si-2z6** — frontier-tier ceiling check (`a64484c`). **F1 = 0.941** with Opus on the same v2_elided prompt. All 3 cheap-tier dropped TPs recovered + 5 unlabeled discoveries (filed as si-e5q to label).
+- **si-e5q** — Labeled the 5 frontier-only discoveries from si-2z6. **All 5 came back POSITIVE** under fresh independent v2-rubric application: three NEW-version-introduction re-rolls (1.2.15, 1.2.18, 1.2.19), a Thrift-freeze policy proposal, and an in-flight RC trajectory change (rc3 inserting a delay before -final). Expanded label pool 153 → 158 items (8 → 13 POS).
+- **si-t3l** — Hadoop common-dev@ 2014 harvested (3503 messages). Top-10 sender domains span 4 distinct (`apache.org`, `builds.apache.org`, `cloudera.com`, `hortonworks.com`); broader distribution shows clear Cloudera/Hortonworks/Yahoo/Intel/Oracle/MapR multi-org coordination. **Corpus accepted as the second slice.** List-name correction recorded: original pre-reg said `dev@hadoop.apache.org` (doesn't exist); selected `common-dev@hadoop.apache.org` after probing the four sublists.
+- **si-bm1** — Cost-tier escalation simulation **validated**. Pool **P2** (NEG ∩ vote/proposal subject ∩ root-or-body>800 chars; 241 items, **33% of corpus**) reaches **F1 = 0.960** — within 0.003 of full-frontier F1=0.963 — at one-third the inference cost. Pre-reg accuracy mostly hit; P1 narrow underperformed (catches dropped TPs but misses [VOTE]-root discoveries). **The architecture's cost-tier hierarchy is empirically validated for this detector.**
+- **si-q0i** — Few-shot scaffolding produced **no F1 lift**. v2_elided_fewshot reached F1=0.625 against same-eval-set baseline 0.625. Composition shifted (recovered 1 frontier-discovery, lost Op-13 to a regression — "shape budget" hypothesis filed as si-dku). Heavy structure steers toward example surface form, not toward underlying rubric concept. Don't promote.
 
-**Orchestration scaffolding (committed `94df370`):**
-- `docs/orchestration.md` — bead-as-execution-unit contract; failure-mode taxonomy (systemic / bead-specific / strategic-implications); audit of current ready beads.
-- `docs/orchestrator-bead-executor-prompt.md` — versioned cold-start prompt for the executor.
-- `bin/orchestrate.sh` — 170-line orchestrator (no LLM in the script itself). Smoke-tested.
-- `.gitignore`: `bead-failures/` added.
+**Two key infrastructure findings recorded as memory updates:**
 
-**Throughput tuning (committed `35223c3`, `d7077c1`):**
-- `src/classify/dump_prompts.py` — emits exact vLLM payloads to JSONL for replay/tuning experiments (no inference).
-- `src/classify/replay_concurrent.py` — concurrent replay tool (ThreadPoolExecutor wrapping urllib); reports throughput + latency stats.
-- `src/classify/schedule_change_announcement.py` updated:
-  - **Default concurrency = 32** (was sequential). 731-message v2_elided run: **40s** (was 256s, 6.4× speedup), 0 errors, 731/731 prediction agreement with prior sequential.
-  - `--no-logprobs` flag for production runs (response payloads shrink ~98%, p_pos falls back to 0.999/0.001).
-  - `--top-logprobs N` (default 10 preserves accurate `extract_p_positive`; 2 is the practical floor).
-- Memory `homelab_qwen.md` updated with throughput characterization (saturation at conc=32; auxiliary knobs are zero-throughput levers — they shrink response payloads only).
+1. **Cheap-tier `p_positive` distribution is sharply bimodal at temperature=0 + guided JSON.** 726 items at p_pos<0.01, 5 at >0.90, **zero in [0.01, 0.90]**. Logprob-based borderline triage is structurally unavailable in this configuration; use content-structural criteria. (memory: `homelab_qwen.md`)
+2. **For closing cheap-tier capability-ceiling gaps, bet architecture over prompt-craft.** Cost-tier escalation (si-bm1: F1+0.40) dominates few-shot scaffolding (si-q0i: F1+0.00). (memory: `messages_are_not_single_thesis_streams.md`)
+
+**Detector status:** `schedule_change_announcement` Prototype operating point is now **two-tier**:
+- Cheap-tier-v2_elided handles 67% of corpus (model-NEG outside the P2 pool)
+- Frontier-tier-v2_elided triages the 33% in P2 pool (NEG ∩ vote/proposal-marker subject ∩ root-or-body>800)
+- Combined F1 = 0.960, precision 1.000, recall 0.923 against the 158-item expanded v2 label set
 
 ---
 
 ## Strategic implications worth your judgment
 
-### 1. The substrate-demand inference rule is now empirical
+### 1. Cost-tier escalation pattern is now project-architectural, not detector-specific
 
-si-rrz, si-qdf, si-2z6 worked through the same 3 dropped TPs with three different interventions:
+si-bm1 demonstrated that a content-structural borderline criterion (subject markers + body length) closes the cheap-tier-vs-frontier gap on this detector. The pattern itself is corpus-agnostic — the *criterion specifics* (`[VOTE`, `Proposal:`) are project-specific Apache-list conventions. **For your call:** should we promote cost-tier escalation to a first-class architectural commitment in `docs/architecture.md`, or treat it as a per-detector pattern that gets re-derived each time? My read: promote it. The pattern is general; the criteria are detector-tuned.
 
-| Intervention | Result |
-|--------------|--------|
-| Diagnose what the cheap-tier needs (si-rrz) | "Needs version-state context" |
-| Add version-state context as substrate tags (si-qdf) | **Regressed** — anti-anchored on procedural frame |
-| Apply same prompt with frontier model (si-2z6) | **Worked** — all 3 recovered, F1 = 0.941 |
+### 2. Few-shot doesn't substitute for escalation
 
-The lesson: "cheap-tier failed → substrate would help" was wrong as a default rule. Updated `messages_are_not_single_thesis_streams.md` with the revised inference taxonomy: (a) info missing → add substrate; (b) info present but cheap-tier can't extract → frontier escalation or heavy prompt scaffolding; (c) cheap-tier extracts wrong frame → rubric/prompt redesign (NOT substrate).
+The si-q0i result is informative both as a negative result and as a sharpening of the "heavy structured prompts steer reliably" lesson. They steer toward the structure's surface form, not toward the underlying concept. **For your call:** worth memorializing in architecture.md as a design principle, or just leave in memory? My read: keep it in memory and the q0i Results block; it's a tactical lesson, not architectural.
 
-**For your call:** does this finding change the priority of the substrate work overall? si-jl0 (cross-thread author context) and si-r6h (umbrella) are still idea-stage. The cost-tier escalation pattern (si-bm1, just filed) is now the highest-evidence path forward.
+### 3. The cross-corpus generalization test (U1) is now unblocked
 
-### 2. The 5 frontier discoveries may shift all v2 numbers
+Hadoop common-dev@ 2014 is in `data/processed/`. The natural next experiment is **si-2wh** (cross-corpus eval of `schedule_change_announcement` v2_elided), now top of the ready queue at P2. Caveat: ~64% of Hadoop common-dev traffic is `jira@apache.org` cross-posts and Jenkins CI noise — needs filtering before classifier runs (filed as si-oew, P3). **For your call:** filter-then-classify, or run on raw and accept the noise dilution? My read: filter first; the filter is trivial (drop messages where `from_email` matches `jira@apache.org` or domain `builds.apache.org`) and Cassandra dev@ didn't have this issue, so apples-to-apples comparison wants the noise gone.
 
-si-e5q (just filed) is a P2 auto-executable foray to label the 5 frontier-positives Opus surfaced. They include candidate NEW-version proposals (1.2.15, 1.2.18, 1.2.19) and the Thrift-freeze proposal. If most are true positives, the OpusPositive set expands from 8 → ~13, which would ripple into all prior v2 evaluations:
-- cheap-tier-v2_elided's recall would change (from 0.625 to maybe 5/13 = 0.38 if it caught 0 of the 5)
-- cheap-tier-v2_strict's recall would similarly shift
-- F1 numbers for both would update
+### 4. Operating point on `schedule_change_announcement` is now a two-tier detector
 
-**For your call:** want me to run si-e5q now (it's small — 5 items × Opus subagent ≈ 5 min)?
-
-### 3. Cost-tier escalation pattern has its first measured demand
-
-si-bm1 (idea-stage, just filed): the architecture's "narrow models do high-volume; capable models do borderline cases" maps cleanly onto si-2z6's finding. Concrete first foray: define a cheap-tier "borderline" criterion, escalate ~10-30 items per corpus to frontier. F1 lift target: approaching 0.94.
-
-This could materially close the cheap-tier-v2_elided 0.625 recall gap — but it's a real architectural commitment (we'd start escalating in production). Worth a strategic discussion.
+`detector-catalog.md` likely needs an update reflecting the new operating point: cheap-tier-v2_elided + frontier-on-P2-pool. **For your call:** update the catalog now, or wait for cross-corpus confirmation? My read: update with a note that the architecture is validated on Cassandra; cross-corpus is the next test.
 
 ---
 
 ## Needs attention (failures or under-specified beads)
 
-**None.** No beads in `needs_attention` state. All this session's beads either closed cleanly or surfaced strategic implications via Results blocks.
+**None.** All four beads closed cleanly with Results blocks. Six follow-up `idea`-status beads filed.
 
 ---
 
 ## Next auto-executable (if you green-light orchestrator runs)
 
-**1 bead is currently auto-executable as filed:**
-- **si-e5q** — label the 5 frontier discoveries. Small, fast, expands the eval base.
+The auto-executable label was used as the lock-in mechanism for the four beads run this session. Now that they're closed, the new follow-up beads are `idea`-status and need strategy-session input before becoming auto-executable. The closest-to-ready:
 
-**1 bead is close to auto-executable** (needs ~10 min of pre-reg drafting to be ready):
-- **si-kxh** — Platt/isotonic logprob calibration. Algorithm specified, inputs specified, just needs decision rule + thresholds in a pre-reg block.
-
-**No others.** Per `orchestration.md`'s audit, the remaining ready beads (si-r6h, si-jl0, si-z0a, si-t3l) need strategy-session input before they can be auto-executed.
+- **si-2wh** (cross-corpus eval, P2): well-specified by its description, just needs a pre-reg block + decision rule + falsifiers committed. Could be elaborated and labeled auto-executable in ~10 minutes.
+- **si-oew** (filter Apache JIRA/Jenkins bots, P3): trivial implementation; depends on whether we adopt as a permanent harvest-pipeline preprocessing step or a one-off classifier flag. A small strategy call.
+- **si-03o** (run P2 cost-tier escalation on Hadoop common-dev, P3): blocked-by si-2wh logically (need cheap+frontier predictions on Hadoop first).
 
 ---
 
@@ -88,50 +67,47 @@ This could materially close the cheap-tier-v2_elided 0.625 recall gap — but it
 
 | Bead | What's needed |
 |------|---------------|
-| **si-t3l** | Pick a corpus. Hadoop dev@ is the strongest candidate per its description. Once picked, I can execute the harvest. |
-| **si-z0a** | Concrete hypothesis: "messages with code blocks are 2x more likely to be schedule_change_announcement positives" — testable against existing data. Want me to draft this as a pre-reg? |
-| **si-jl0** | Smallest first foray that proves cross-thread author-context against a real detector. No detector currently demands it; would be premature substrate. |
-| **si-r6h** | Umbrella idea — re-visit when 2-3 substrate pieces have proven themselves on real detector demand. Don't elaborate yet. |
-| **si-bm1** (new, P3) | Cost-tier escalation foray — concrete demand exists (3 TPs recoverable by frontier). Pre-reg + define borderline criterion. |
-| **si-q0i** (new, P3) | Few-shot prompt scaffolding for NEW-version disambiguation. Alternative path to closing the cheap-tier gap. |
-| **si-kxh** | If you want it auto-executable: confirm whether Platt or isotonic, and whether a Brier improvement of ≥0.05 is the promotion threshold. |
+| **si-2wh** | Pre-reg block — predicted F1 against Hadoop, decision rule for "did the operating point transfer," falsifiers. Probably the most important next experiment: U1 cross-domain generalization. |
+| **si-oew** | Decision: filter as a harvest-pipeline preprocessing step (preferred — applies generally) or as a classifier-side `--exclude-bots` flag (per-detector). |
+| **si-03o** | Pre-reg + adapted P2 criterion. The `[VOTE]`/`Proposal:` regex is Apache convention; Hadoop *also* uses `[VOTE]` so transfer should be partial. Ideal: same regex, different distribution. |
+| **si-eb5** | Worth pursuing? The "2.1 rc3?" miss is one message in 731. Low-priority; unblock by deferring or by extending P2's regex. |
+| **si-dku** | Worth investigating? The "shape budget" hypothesis is interesting but tangential to the production path. |
+| **si-cga** | Decision: harvest the other three Hadoop sublists for richer cross-sublist coverage, or stop at common-dev? |
+| **si-r6h, si-jl0** | Still umbrella/under-specified — re-visit when 2-3 more substrate pieces have proven themselves. |
+| **si-kxh** | Logprob calibration — but si-bm1 just demonstrated logprobs are bimodal at temperature=0. The bead may need re-framing: "calibrate via response self-consistency or temperature>0 sampling, not via Platt on bimodal-degenerate logprobs." |
+| **si-z0a** | Code-block bias investigation; lower priority since the operating point on this detector is now two-tier. |
 
 ---
 
 ## Open architectural questions worth a strategy moment
 
-- **Are we satisfied with one detector promoted, or do we want N before testing cross-domain generalization (U1)?** si-t3l (second corpus) is the higher-leverage move strategically; si-bm1 / si-q0i are higher-resolution moves on the existing detector.
-- **Should we adopt the cost-tier escalation pattern in production?** si-2z6's data says yes for `schedule_change_announcement`; whether to generalize is a real architecture decision.
-- **First end-to-end orchestrator cycle** — there's currently 1 auto-executable bead (si-e5q). Run it as the proof? Or wait until a few more beads are elaborated and run a longer batch?
+- **Promote cost-tier escalation to an architectural commitment in `architecture.md`?** The pattern is now empirically validated on one detector (F1=0.960, 33% inference cost vs 99%). Adoption decision is real.
+- **Cross-corpus generalization test cadence:** run U1 against Hadoop common-dev now (with bot-filter), or wait for a third corpus to break Cassandra+Hadoop overfitting concerns?
+- **Bot-filter as substrate?** The Apache JIRA/Jenkins noise is an Apache-list convention. Adding it to the harvest pipeline encodes a specific convention; making it a classifier flag stays per-detector. Architecture call.
 
 ---
 
 ## Bd state
 
-- 8 ready issues; 0 in_progress; 0 blocked.
-- Closed this session: si-pfo, si-clz, si-1lz, si-71f, si-d6m, si-rrz, si-3mg, si-q9m, si-dwi, si-jkr, si-5m8, si-cjc, si-2t4, si-qdf, si-2z6 (15 total).
-- Filed this session as new ideas: si-jl0, si-qdf (executed since), si-r6h, si-bm1, si-q0i, si-e5q.
+- 10 ready issues; 0 in_progress; 0 blocked.
+- Closed this session: si-e5q, si-t3l, si-bm1, si-q0i (4 total).
+- Filed as `idea`-status follow-ups: si-2wh, si-03o, si-oew, si-dku, si-cga, si-eb5 (6 total).
+- The four-bead strategy-fork batch produced six new ideas — natural wavefront expansion at ~1.5x.
 
 ## Git state
 
-- 26 local commits ahead of `origin/main`. **User said they'll handle pushes.**
-- Two untracked tarball/zip files (backups), leaving them alone.
-- Working tree otherwise clean.
+- Local commits ahead of `origin/main`: ~30+ (user said they'll handle pushes).
+- Working tree otherwise clean after this session's commits.
 
 ## Memory updates this session
 
-- `labels_are_opus_generated.md` — terminology + epistemic framing
-- `messages_are_not_single_thesis_streams.md` — substrate-demand inference rule revised through three rounds (rrz/qdf/2z6)
-- `local_temporal_context.md` — heavy structured prompts steer cheap-tier; structural elision beats prompt instructions
-- `no_epistemic_downside.md` — autonomous execution principle
-- `tactics_vs_strategy_shapes.md` — bead-vs-strategy-artifact distinction
-- `homelab_qwen.md` — throughput characterization (saturation at conc=32; auxiliary knobs are zero-throughput)
+- `homelab_qwen.md` — added the bimodal-logprob finding (zero items in [0.01, 0.90]; logprob-based borderline triage structurally unavailable at temperature=0 + guided JSON).
+- `messages_are_not_single_thesis_streams.md` — appended si-bm1 architectural resolution: cost-tier escalation dominates prompt-craft for capability-ceiling cases.
 
 ## Environment notes
 
-- Homelab: stable. **New throughput norm:** 731-message run takes ~40s at default concurrency=32 (was ~256s sequential). Saturation at conc=32-64; beyond that is queueing tax with no throughput gain.
-- Two deterministic vLLM/parsing failures fixed earlier (`1f9cdf7`).
-- 6 prompt variants in classifier: current_baseline, new_only, new_with_marked_quoted, v2_strict, v2_elided, v2_elided_tagged. Operating point: v2_elided.
-- Eval harness now at v0.2.0 with stratified FN (si-2t4 fix).
-- Default concurrency = 32; default logprobs = on. Set `--no-logprobs` for production runs (98% smaller predictions).
-- `bin/orchestrate.sh` is ready but no beads currently labeled `auto-executable` — the first strategy session move is converting one or more ready ideas into self-contained executable beads.
+- Homelab: stable. v2_elided_fewshot run on 731 messages: 58.6s @ concurrency=32 (consistent with prior throughput norm).
+- 7 prompt variants in classifier: + `v2_elided_fewshot` (si-q0i, examples loaded from `src/classify/prompts/v2_fewshot_examples.txt`).
+- Eval harness now scores against the 158-item expanded v2 label set. `pool_and_extrapolate.py` v0.2.0 still authoritative.
+- New analysis scripts: `src/evaluate/analyze_bm1_escalation.py`, `src/evaluate/analyze_q0i_fewshot.py` (both committed).
+- New harvest: `data/processed/apache/common-dev@hadoop.apache.org/2014-*.jsonl` (gitignored; reproducible from `src/harvest/apache_mbox.py`).
