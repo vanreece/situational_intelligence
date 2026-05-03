@@ -61,7 +61,64 @@ Negative results compound as much as positive ones. Skipping the pre-reg block i
 
 ---
 
-## 2026-05-03: Parallel batch — second corpus, cost-tier escalation, few-shot scaffolding
+## 2026-05-03: si-2wh — Cross-corpus generalization test (U1) of `schedule_change_announcement` on Hadoop common-dev@ 2014
+
+**Question:** Primary U1 (does consequence-correlated detection generalize across program domains?). Apply the *frozen* `schedule_change_announcement` v2_elided operating point to a second corpus without modification — same prompt, same body shape, same rubric. Measure how F1/precision/recall behave on Hadoop common-dev relative to Cassandra dev@. Two outcomes are interesting: (a) the detector transfers cleanly → architecture earns one validated cross-domain hop; (b) the detector breaks → we learn what's domain-tied about either the rubric or the cheap-tier's behavior.
+
+This bead deliberately scopes to the *cheap-tier baseline* on Hadoop. The cost-tier escalation transfer test (frontier-on-Hadoop + P2 criterion adapted) is a follow-up (`si-03o`). Reasons: (1) the cheap-tier alone is the cheapest meaningful generalization signal — if it doesn't transfer, the operating point won't either. (2) Frontier-on-Hadoop costs real money and we should run it after we know the cheap baseline is sane. (3) The architectural commitment to cost-tier escalation is per-detector-empirical (per `architecture.md` 2026-05-03 update); we should establish the cheap-tier baseline first, then add the labeled-eval comparison the architecture commits to.
+
+**Beads issues:** si-2wh (run; pre-reg block here; discovered-from si-t3l).
+
+### Pre-registration *(commit this block before running)*
+
+**Setup:**
+
+- **Corpus:** `data/processed/apache/common-dev@hadoop.apache.org/2014-*.jsonl` (3503 messages, harvested in si-t3l).
+- **Bot-filter step (pre-classification):** Drop messages where `from_email` is `jira@apache.org` (the JIRA cross-post alias) OR ends with `@builds.apache.org` (Jenkins CI). Write filtered corpus to `data/processed/apache/common-dev@hadoop.apache.org-filtered/2014-*.jsonl`. Empirical pre-flight: this rule drops 2148 messages (61.3%), leaving 1355 human-authored messages. Post-filter senders span Hortonworks (Loughran, Murthy, Vavilapalli, Shen, Nauroth), Cloudera (Kambatla, Wang, Abdelnur, Ryza, Zhang), gmail-personal (multiple), apache.org committer aliases, alumni.cmu.edu, oss.nttdata.co.jp, basjes.nl. Multi-org texture preserved. **Filter rule is frozen** — any change requires a new pre-reg.
+- **Filter implementation:** new script `src/harvest/filter_bots.py`. Pure I/O, no LLM. Idempotent on re-run.
+- **Detector:** `schedule_change_announcement` operating point as committed in si-rrz (v2 system prompt, `v2_elided` body shape, depth=2 quote filter, line-content elision). **NO retuning of any kind.** Same prompt-hash `ba10bafd2d271613`. The whole point of U1 is to apply the frozen detector and observe what happens.
+- **Model:** Qwen3-Coder-30B-A3B-Instruct (cheap-tier) at homelab `192.168.100.101:8080`. Concurrency=32, `--no-logprobs`.
+- **Predictions output:** `results/detector-runs/schedule_change_announcement/si-2wh/hadoop-common-dev-2014-predictions-v2-elided.jsonl`.
+- **Labels (pool-and-extrapolate via Opus subagent):**
+  - Hand-label all model-positives (estimated: 70–200 messages, scaling from Cassandra's 6.6% × 1355 = ~89, plus uncertainty around Hadoop's different signal density).
+  - Stratified random sample of 50 model-negatives (`sample_role=random_sample`).
+  - Apply v2 rubric verbatim (frozen text from `src/classify/schedule_change_announcement.py:75`). Anti-contamination: subagent does NOT see Cassandra results, prior rationales, or prior label files except the rubric text.
+  - Output: `labels/schedule_change_announcement/hadoop-common-dev-2014-labels-v2.jsonl` with `sample_role` ∈ {`pool`, `random_sample`}.
+- **Eval:** `src/evaluate/pool_and_extrapolate.py` v0.2.0 (the post-si-2t4 stratified estimator). Compute precision (pool-direct), recall (extrapolated from random sample's FN rate), F1.
+
+**Predictions (frozen):**
+
+| metric | predicted | reasoning |
+|--------|-----------|-----------|
+| Cheap-tier model-positives in 1355-msg filtered corpus | 30–150 | Cassandra hit 6.6% (48/731) at v2_elided. Hadoop's larger commercial-vendor presence may produce more explicit release-coordination → higher rate. Wide band reflects honest uncertainty. |
+| Pool-direct precision against Hadoop-v2 labels | 0.70–0.95 | Cassandra hit 1.000 on the strict v2 rubric. Hadoop has a different vocabulary (release-cadence concerns around Cloudera-vs-Hortonworks competition); the prompt may anchor on different surface forms. Wide band. |
+| Extrapolated recall | 0.40–0.75 | Cassandra got 0.385 on the expanded 158-label set. The cheap-tier's known weakness (NEW-version disambiguation requiring inter-message context) likely persists on Hadoop. |
+| F1 | 0.50–0.85 | Wide band; the U1 question is whether F1 lives in this range or wildly outside. |
+| Hadoop F1 within ±0.10 of Cassandra's 0.5556 (post-si-e5q expanded-labels view) | yes | Default expectation: detector transfers — same rubric, same model, similar Apache-list discourse style. |
+
+**Decision rule:**
+
+- **Hadoop F1 within ±0.10 of Cassandra cheap-tier F1 (i.e., 0.46 ≤ F1 ≤ 0.66 on filtered Hadoop):** detector is **generalizing**. Promote `schedule_change_announcement` from "Prototype (validated on Cassandra)" to "Validated (two corpora)" in `detector-catalog.md`. Advance to `si-03o` (frontier-on-Hadoop + P2 escalation transfer).
+- **Hadoop F1 > 0.66:** Detector performs *better* on Hadoop than expected. Worth investigating: is Hadoop's release language more explicit (commercial-pressure-driven), or is the rubric more aligned with Hadoop's vocabulary? Either way, the operating point survives.
+- **Hadoop F1 < 0.46:** Detector is over-fit to Cassandra. Inspect failure modes (precision-vs-recall split). Likely candidates: (a) Hadoop's vote process differs from Cassandra's, breaking the v2 rubric's vote-mechanic NEGATIVE clause; (b) Hadoop's project-cadence vocabulary differs (e.g., "branch cuts" instead of "re-rolls"); (c) the Cloudera-Hortonworks competitive frame produces schedule-discussion shapes the v2 rubric doesn't cover. **Don't retune the rubric in this bead.** Document findings; file a follow-up for rubric-adaptation work.
+- **Cheap-tier model-positives = 0 OR > 400:** prompt isn't recognizing Hadoop's vocabulary, OR is firing too eagerly. Halt; sample-check; do not produce a scorecard until inspection clears the issue.
+- **Filtered corpus < 800 messages:** bot filter rule is too aggressive (or harvest was incomplete). Halt; investigate.
+
+**Falsifiers / mind-changers:**
+
+- **Pool-direct precision is high (≥0.90) AND extrapolated recall is high (≥0.80) on Hadoop:** detector transfers *better* than on Cassandra. Suspicious — verify by hand-sampling 10 model-positives. If real, implies Cassandra's 0.385 recall was a domain-specific weakness, not an inherent cheap-tier ceiling.
+- **Pool-direct precision is much lower than Cassandra's 1.000 with model-positives count similar:** the cheap-tier is producing FP shapes Cassandra didn't produce. Investigate which subjects/bodies the FPs cluster on; this is a U3 finding about cheap-tier transfer.
+- **Subject-marker convention differs (no `[VOTE]`/`Proposal:` patterns in Hadoop):** the future si-03o cost-tier escalation P2 criterion would not transfer as-is. Inspect Hadoop's release-discussion subject conventions; pre-emptively note them as a follow-up.
+- **Opus labeling subagent flags >40% of pool items as `unsure`:** rubric is interpretation-fragile on Hadoop in ways it wasn't on Cassandra. Important rubric finding; document.
+- **Filtered corpus contains residual non-human messages (e.g., subjects starting with `Build` from non-builds.apache.org senders, or `[jira]` from non-alias senders):** the filter rule missed a class. The empirical pre-flight already verified `[jira]` subjects all come from `jira@apache.org` (1789 of 1789), so this is unlikely — but spot-check 5 sampled messages of the filtered corpus to confirm.
+
+**Anti-contamination:**
+
+- Opus labeling subagent must NOT read any Cassandra labels, Cassandra rationales, prior detector-run files, or this experiment's bd notes. The subagent receives only the v2 rubric text and the Hadoop messages.
+- The subagent must not see this pre-reg block (the predictions and decision-rule text would prime its labels).
+- The cheap-tier classifier run uses the frozen v2_elided variant. No prompt edits.
+
+### Results *(commit this block after running)*
 
 **Question:** Three independent forays dispatched as a parallel batch under the autonomous-execution principle. Each addresses a different unknown but they share no resource conflicts.
 
