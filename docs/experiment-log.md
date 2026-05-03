@@ -78,10 +78,11 @@ Negative results compound as much as positive ones. Skipping the pre-reg block i
 
 **Setup:**
 
-- **Source:** `lists.apache.org/api/mbox.lua` (same endpoint as Cassandra). List: `dev@hadoop.apache.org`. Range: 2014-01..2014-12.
-- **Why Hadoop dev@ 2014:** Hadoop was a TLP through this period with strong multi-vendor presence (Cloudera, Hortonworks, Yahoo, MapR, Intel, Microsoft). 2014 was the Hadoop 2.x active phase with multiple release lines (2.4, 2.5, 2.6) and active vendor competition — exactly the multi-vendor coordination texture absent from Cassandra's single-org-dominant slice.
+- **Source:** `lists.apache.org/api/mbox.lua` (same endpoint as Cassandra). List: `common-dev@hadoop.apache.org`. Range: 2014-01..2014-12.
+- **List-name correction (in-flight):** the original pre-reg specified `dev@hadoop.apache.org`, but that list does not exist — Hadoop split the integrated dev list into per-project sublists (`common-dev`, `hdfs-dev`, `mapreduce-dev`, `yarn-dev`) when it modularized. Probed all four; `common-dev` is the highest-volume in 2014-01 (2.7MB raw) and is the closest analog to Cassandra's single-list `dev@` because it carries cross-project release-coordination traffic. Selected `common-dev`. The other three sublists remain candidates for a follow-up.
+- **Why Hadoop common-dev@ 2014:** Hadoop was a TLP through this period with strong multi-vendor presence (Cloudera, Hortonworks, Yahoo, MapR, Intel, Microsoft). 2014 was the Hadoop 2.x active phase with multiple release lines (2.4, 2.5, 2.6) and active vendor competition — exactly the multi-vendor coordination texture absent from Cassandra's single-org-dominant slice.
 - **Why 2014 specifically:** matches the Cassandra slice for direct cross-corpus comparability. Apple-to-apples temporal alignment for the eventual `schedule_change_announcement` cross-corpus eval.
-- **Pipeline:** Existing `src/harvest/apache_mbox.py` parameterized on `--list dev --domain hadoop.apache.org --start 2014-01 --end 2014-12`. Output to `data/raw/apache/dev@hadoop.apache.org/2014-MM.mbox` and `data/processed/apache/dev@hadoop.apache.org/2014-MM.jsonl`.
+- **Pipeline:** Existing `src/harvest/apache_mbox.py` parameterized on `--list common-dev --domain hadoop.apache.org --start 2014-01 --end 2014-12`. Output to `data/raw/apache/common-dev@hadoop.apache.org/2014-MM.mbox` and `data/processed/apache/common-dev@hadoop.apache.org/2014-MM.jsonl`.
 - **Diversity check:** Tabulate top-10 senders by message count, group by email-domain (`@cloudera.com`, `@hortonworks.com`, etc.). Acceptance threshold: top-10 senders span ≥3 distinct organizations.
 
 **Predictions:**
@@ -219,7 +220,18 @@ Negative results compound as much as positive ones. Skipping the pre-reg block i
 
 ### Results *(append per sub-experiment after each completes)*
 
+#### si-e5q — label 5 frontier discoveries (LANDED)
 
+All 5 frontier-only discoveries returned **POSITIVE** under fresh independent application of the v2 rubric. Detector-shape categorization: three are NEW-version-introduction re-rolls of the same shape as the rubric's canonical POS example — `1.2.15` (CASSANDRA-6648 fix following 1.2.14), `1.2.18` (java-6 build fix following 1.2.17), and `1.2.19` ("last release in this series"). One is a version-target-policy proposal (Thrift freeze pegged to 2.1.0). One is an in-flight RC trajectory change ("rc3?" delaying the previously-implied -final). None of the five required quoted-text-rule violation; every evidence quote is from the author's own new content.
+
+| variant | label set | TP | FP | pool_direct_FN | precision | recall | F1 |
+|---|---|---:|---:|---:|---:|---:|---:|
+| cheap-tier-v2_elided (si-d6m) | before (153) | 5 | 0 | 3 | 1.000 | 0.625 | 0.7692 |
+| cheap-tier-v2_elided (si-d6m) | **after (158)** | **5** | **0** | **8** | **1.000** | **0.385** | **0.5556** |
+| frontier-v2_elided (si-2z6) | before (153) | 8 | 1 | 0 | 0.889 | 1.000 | 0.9412 |
+| frontier-v2_elided (si-2z6) | **after (158)** | **13** | **1** | **0** | **0.929** | **1.000** | **0.9630** |
+
+The cheap-tier's 0.625 recall on the original 153-item pool was an upper bound conditioned on what the cheap tier *and* the original Opus pool had jointly already surfaced. Once we admit the 5 frontier-only discoveries — all of which the cheap-tier scored at p_pos < 0.01 — the cheap-tier's true recall against a more complete v2 positive set drops sharply to 0.385. The cheap-tier isn't getting worse; we're getting a more honest view of its ceiling. This **strengthens** the case for cost-tier escalation (si-bm1): the gap between cheap-tier and frontier on this detector is wider than the 0.625-vs-0.941 framing suggested. Frontier's F1 *improves* on the expanded pool (0.941 → 0.963) because its lone FP is now diluted against a larger TP base — confirming si-2z6's verdict that the frontier ceiling is still in the high-0.9s on this rubric. Scorecards: `results/evals/schedule_change_announcement-d6m-v2-elided/scorecard-post-e5q.json`, `results/evals/schedule_change_announcement-2z6-frontier/scorecard-post-e5q.json`.
 
 **Question:** Three independent experiments dispatched as a parallel work batch under the autonomous-execution principle (memory: `no_epistemic_downside.md`). Each is well-specified with a pre-reg block, decision rule, and falsifiers. They share no resource conflicts and can run concurrently.
 
