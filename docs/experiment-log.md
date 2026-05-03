@@ -61,7 +61,165 @@ Negative results compound as much as positive ones. Skipping the pre-reg block i
 
 ---
 
-## 2026-05-02: Parallel batch — eval harness fix, frontier ceiling check, typed-tag first foray
+## 2026-05-03: Parallel batch — second corpus, cost-tier escalation, few-shot scaffolding
+
+**Question:** Three independent forays dispatched as a parallel batch under the autonomous-execution principle. Each addresses a different unknown but they share no resource conflicts.
+
+- **si-t3l** (U1 cross-domain): harvest Hadoop dev@ 2014 as the second corpus so generalization tests of `schedule_change_announcement` become possible.
+- **si-bm1** (architecture): does cost-tier escalation on a small borderline pool recover most of the frontier-tier F1 lift at a fraction of the cost? The architectural pattern from `architecture.md` ("narrow models do high-volume; capable models do borderline cases") gets its first measurement.
+- **si-q0i** (U3 cheap-tier ceiling): do few-shot examples in the system prompt steer the cheap-tier reliably enough to recover the 3 dropped TPs that the typed-tag substrate (si-qdf) anti-anchored on?
+
+**Beads issues:**
+- si-t3l (run; pre-reg block here)
+- si-bm1 (run; pre-reg block here; discovered-from si-2z6)
+- si-q0i (run; pre-reg block here; discovered-from si-2z6)
+
+### Sub-experiment 1: si-t3l — harvest Hadoop dev@ 2014 (second corpus)
+
+**Setup:**
+
+- **Source:** `lists.apache.org/api/mbox.lua` (same endpoint as Cassandra). List: `dev@hadoop.apache.org`. Range: 2014-01..2014-12.
+- **Why Hadoop dev@ 2014:** Hadoop was a TLP through this period with strong multi-vendor presence (Cloudera, Hortonworks, Yahoo, MapR, Intel, Microsoft). 2014 was the Hadoop 2.x active phase with multiple release lines (2.4, 2.5, 2.6) and active vendor competition — exactly the multi-vendor coordination texture absent from Cassandra's single-org-dominant slice.
+- **Why 2014 specifically:** matches the Cassandra slice for direct cross-corpus comparability. Apple-to-apples temporal alignment for the eventual `schedule_change_announcement` cross-corpus eval.
+- **Pipeline:** Existing `src/harvest/apache_mbox.py` parameterized on `--list dev --domain hadoop.apache.org --start 2014-01 --end 2014-12`. Output to `data/raw/apache/dev@hadoop.apache.org/2014-MM.mbox` and `data/processed/apache/dev@hadoop.apache.org/2014-MM.jsonl`.
+- **Diversity check:** Tabulate top-10 senders by message count, group by email-domain (`@cloudera.com`, `@hortonworks.com`, etc.). Acceptance threshold: top-10 senders span ≥3 distinct organizations.
+
+**Predictions:**
+
+| metric | predicted | reasoning |
+|--------|-----------|-----------|
+| Total messages 2014 | 1500–4000 | Hadoop dev@ is much higher-volume than Cassandra's 731. |
+| Top-10 sender domain diversity | 4–8 distinct orgs | Cloudera + Hortonworks + Yahoo at minimum based on commit history. |
+| Mailing-list-mechanic noise (JIRA cross-posts, +1 votes) | ~30% of messages | Apache lists in this era had noticeable JIRA bot traffic. |
+| Schedule-change signal density | ~5–15% positive rate | Multi-org pressure on releases should produce more explicit schedule discussion than single-org Cassandra (~7% strict v2 rate). |
+
+**Decision rule:**
+
+- **Top-10 sender domain diversity ≥3 orgs AND total messages ≥1000:** corpus accepted as the second slice. File `idea`-status follow-up to run `schedule_change_announcement` v2_elided against this corpus (cross-corpus generalization test).
+- **Top-10 sender domain diversity <3:** Hadoop is also single-org-dominant for this slice. Document the finding; pick a different corpus (Apache Incubator retiree or IETF working group). Don't promote.
+- **Mbox endpoint returns < 100 messages or 4xx:** harvest pipeline failure or list move. Halt as bead-specific failure; investigate.
+
+**Falsifiers / mind-changers:**
+
+- Top-10 senders all from same org: corpus is multi-org in name only; pick a different one.
+- Total volume <500: 2014 wasn't an active year for Hadoop dev@; pick a different year or a different list.
+- Harvester crashes on Hadoop's mbox shape: parser bug surfaces a generality issue in `apache_mbox.py` worth fixing before the next harvest.
+
+**Anti-contamination:** none — this is a harvest, not a detector run. The corpus must NOT be inspected for `schedule_change_announcement` content during this foray (would contaminate the eventual cross-corpus test).
+
+### Sub-experiment 2: si-bm1 — cost-tier escalation simulation
+
+**Key insight:** si-2z6 already ran the frontier (Opus) on all 731 Cassandra dev@ 2014 messages. So the cost-tier-escalation question is a **simulation on existing data**, not new inference: "if we had used cheap-tier on confident-calls and frontier on a borderline pool, what F1 would we have achieved versus the cost?" This frames the foray as a replay-and-score exercise.
+
+**Setup:**
+
+- **Inputs (frozen):**
+  - Cheap-tier predictions: `results/detector-runs/schedule_change_announcement/si-d6m/cassandra-2014-predictions-v2-elided.jsonl` (731 records).
+  - Frontier predictions: `results/detector-runs/schedule_change_announcement/si-2z6/cassandra-2014-predictions-frontier-v2-elided.jsonl` (same 731 IDs).
+  - Labels: `labels/schedule_change_announcement/cassandra-2014-labels-v2.jsonl` (will be the **post-si-e5q expanded set**, ~158 items if all 5 frontier-discoveries are POS).
+- **Context:** the cheap-tier's `p_positive` distribution is sharply bimodal — 726 items at p_pos<0.01, 5 items at p_pos>0.90, **zero items in [0.01, 0.90]**. A logprob-based borderline criterion is structurally unavailable. The borderline criterion must therefore be content-structural (subject pattern, body length, version mention) rather than confidence-based. This is itself a U3 finding worth recording.
+- **Borderline criterion sweep** — five candidate pools, computed against cheap-tier model-NEGATIVES:
+
+  | Pool | Definition | Pool size |
+  |------|------------|-----------|
+  | P0 | (control) no escalation; cheap-tier alone | 0 |
+  | P1 | NEG ∩ X.Y.Z body ∩ release-keyword ∩ NOT [VOTE]-root subj | ~46 |
+  | P2 | NEG ∩ vote/proposal-marker subject ∩ (root OR body>800 chars) | ~241 |
+  | P3 | NEG ∩ vote/proposal-marker subject (any reply) | ~282 |
+  | P_full | All 731 (frontier-on-everything) | 726 |
+
+  Where:
+  - `X.Y.Z body` = body matches `\b\d+\.\d+\.\d+\b`
+  - `release-keyword` = body matches `\b(re-?roll|take it down|takedown|postpone|shorten|cadence|LTS|cycle|i propose|proposal:|let's do a|move(d)? to)\b` (case-insensitive)
+  - `vote/proposal-marker subject` = subject matches `\[VOTE\b` (covers `[VOTE]`, `[VOTE PASSED]`, `[VOTE CLOSED]`, `[VOTE FAILED]`) OR matches `^proposal:` (case-insensitive)
+  - "root" = subject does NOT start with `re:` or `fwd:` (case-insensitive)
+
+- **Combined-prediction logic:** for each pool P, the combined prediction for message m is:
+  - if `m.id ∈ pool_P_ids` AND `cheap_pred[m] == False`: use `frontier_pred[m]`
+  - else: use `cheap_pred[m]`
+  (Equivalently: escalate cheap-NEGs-in-pool to frontier; trust everything else from cheap.)
+
+- **Score against expanded labels** (post-si-e5q): precision, recall (pool-direct), F1 for each combined-prediction set. Also report number of frontier calls = pool size = cost proxy.
+
+- **Implementation:** new analysis script `src/evaluate/analyze_bm1_escalation.py`. No new LLM inference. Reads existing predictions + labels, computes combined predictions, scores. Writes scorecard to `results/evals/schedule_change_announcement-bm1-escalation/scorecard.json`.
+
+**Predictions:**
+
+| metric | P0 (cheap only) | P1 (~46) | P2 (~241) | P_full (726) | reasoning |
+|--------|----------------:|---------:|----------:|-------------:|-----------|
+| Recovered dropped TPs | 0/3 | 3/3 | 3/3 | 3/3 | All 3 dropped TPs are inside P1 already; P2 and P_full include them. |
+| Recovered frontier-discoveries | 0/k | 0/k | ~k–1/k | k/k | k = number of POS frontier-discoveries (k≤5, depends on si-e5q). P1 misses [VOTE]-root subjects; P2/P_full include them. |
+| New FPs introduced (frontier's 1 borderline FP) | 0 | 0–1 | 1 | 1 | Frontier's lone FP (Marcus "3.0/3.1/4.0 musing") sits in a [VOTE]-or-proposal subject ⇒ in P2 but not P1. |
+| F1 vs cheap-tier baseline | 0.769 (current) | 0.85–0.92 | 0.90–0.94 | 0.94 | P1 closes recall gap on the 3 known cases; P2 also captures discoveries; P_full = ceiling. |
+| Frontier-call cost ratio | 0× | 0.06× | 0.33× | 1.00× | Direct ratio of pool size to full corpus. |
+
+**Decision rule:**
+
+- **The smallest pool P_min where combined-F1 ≥ 0.90 AND F1 within 0.05 of P_full:** that is the operating point for cost-tier escalation. Document and consider for production adoption.
+- **No pool achieves F1 ≥ 0.85:** the cost-tier escalation pattern doesn't pay off cleanly for this detector at any tested pool size. Consider that frontier may lift F1 only when applied broadly, narrowing the architectural commitment.
+- **P_full F1 ≠ 0.941:** something has changed in the frontier predictions or labels relative to si-2z6's report. Investigate before drawing conclusions from the smaller pools.
+- **P1 alone hits F1 ≥ P_full − 0.05:** the architecture is even tighter than expected — escalating just 6% of messages (a tightly-scoped borderline pool) recovers near-frontier quality. Strong evidence for adopting in production.
+
+**Falsifiers / mind-changers:**
+
+- All pools produce F1 ≤ cheap-tier baseline: combined logic is wrong (e.g., bug in id-matching). Halt; debug.
+- Frontier's predictions disagree with si-2z6's reported precision/recall: the predictions JSONL has changed since si-2z6 ran. Halt as bead-specific failure.
+- Pool P1 size differs by >20% from the predicted ~46: regex tuning is off; recompute and recheck dropped-TP coverage before scoring.
+
+**Anti-contamination:** the bead executor must NOT re-label any item. Labels are frozen as the post-si-e5q v2 set.
+
+### Sub-experiment 3: si-q0i — few-shot scaffolding for cheap-tier
+
+**Setup:**
+
+- **Premise:** si-d6m showed heavy structured prompts steer Qwen3-Coder reliably; lightweight instructions don't. si-qdf showed structured TAG substrate anti-anchors. Few-shot examples in the system prompt are a third intervention class (heavy structure, no machine-extracted state).
+- **New prompt variant: `v2_elided_fewshot`.** Identical to `v2_elided` system prompt + an EXAMPLES section appended showing 5 worked examples drawn from the v2 OpusLabel pool. Input rendering (depth=2 quote filter + line elision) unchanged.
+- **Example selection rule** (frozen — picked from the v2 pool by their labeled rationale):
+  1. **POSITIVE — NEW-version-introduction (1):** message `CAKkz8Q2_20vQSG3MW0SYqSTUGRrPD8ubL7kz+qkkeR+BRf_y5A@mail.gmail.com` (Sylvain "1.2.18 re-roll"). Rationale: introduces 1.2.18 when 1.2.17 was the last announced — exemplifies the rubric's "re-roll that introduces a NEW version" POSITIVE clause.
+  2. **POSITIVE — NEW-version-introduction (2):** message `53B2F945.9000605@pbandjelly.org` (Shuler "1.2.18 re-roll?"). Rationale: question-form NEW-version reference; demonstrates that question-mark tone doesn't disqualify if the reference is to an unplanned version.
+  3. **NEGATIVE — vote-failure-reroll (procedural fallout) (1):** message `CAKkz8Q3nDn97ihVX5qYkceM7Ehm_WBBmDbTdMag` (Closes 2.0.8 vote, announces reroll). Rationale: same release was always planned; vote-failure reroll is procedural mechanic, NOT schedule change.
+  4. **NEGATIVE — vote-failure-reroll (procedural fallout) (2):** message `CAKkz8Q07-06XA_P_PfwC5J4xWpwQVPqdA8PBnY+` (Closes 2.0.10 vote, announces reroll once pig stuff is fixed). Rationale: distinct surface form ("once X is fixed") still procedural; teaches the boundary.
+  5. **NEGATIVE — vote-period adjustment (vote-mechanic) (1):** message `CAKkz8Q3tHQygxZuKgxuRmp7qP_KqbLA4Y83PJFC` (Resurrects 1.2.16 vote with vote-period adjustment "extend for just 24h more"). Rationale: vote-period adjustment is mechanic, not date — distinct from reroll category.
+
+  Each example renders as: `EXAMPLE [N]:\nSubject: ...\nFrom: ...\nDate: ...\n\n<elided body>\n\nEXPECTED: {"is_schedule_change_announcement": <bool>, "evidence_quote": "...", "rationale": "..."}\n\n`. The rationale text in each example is the v2 label rationale, lightly edited for prompt clarity.
+
+- **Run:** cheap-tier (Qwen3-Coder-30B) at `192.168.100.101:8080`, full 731-message corpus, depth=2 quote filter, `--variant v2_elided_fewshot`, default concurrency=32. Predictions to `results/detector-runs/schedule_change_announcement/si-q0i/cassandra-2014-predictions-v2-elided-fewshot.jsonl`.
+
+- **Score against post-si-e5q expanded labels.** Pool-direct precision/recall/F1.
+
+- **Critical:** the 5 examples are **excluded from the eval set** (would otherwise be train-on-test). Re-score over the labeled pool minus the 5 example IDs.
+
+**Predictions:**
+
+| metric | predicted | reasoning |
+|--------|-----------|-----------|
+| Cheap-tier-fewshot model-positives in 731 corpus | 6–18 | Few-shot examples bias toward POS for NEW-version cases; expect modest expansion from baseline 5. |
+| Recovers Op-9 (Sylvain 1.2.18) | uncertain | The Op-9 message itself IS one of the few-shot examples (excluded from eval). Its near-twin (Shuler 53B2F945) is also in examples ⇒ both excluded. The two remaining 1.2.17/1.2.18 dropped TPs (Ellis takedown) and the discoveries are the actual test. |
+| Recovers Ellis "1.2.17 takedown" | likely yes | Ellis isn't in examples; the few-shot precedent of "1.2.17 was last; 1.2.18 is new" should bridge to "take 1.2.17 down post-vote = substantive change." |
+| Recovers frontier-discoveries (1.2.15, 1.2.18 vote, 1.2.19, Thrift, 2.1 rc3) | 1–4/5 | The vote-root announcements should catch on the NEW-version pattern; Thrift freeze and rc3 are different shapes — mixed coverage. |
+| F1 (excluding 5 example IDs) | 0.78–0.90 | Should beat baseline 0.769; ceiling near frontier's 0.94. |
+| New FPs introduced | 1–4 | Risk: cheap-tier over-generalizes the "NEW-version" pattern to any version mention in a vote thread. |
+| Anti-anchoring failure (cheap-tier reads examples as confirming everything is procedural) | unlikely | si-qdf's anti-anchoring was on TAGS (structured state). Worked examples with explicit POSITIVE labels for NEW-version cases should not trigger the same failure mode. |
+
+**Decision rule:**
+
+- **F1 ≥ 0.85 AND precision ≥ 0.85 (excluding example IDs):** few-shot scaffolding works for the cheap-tier. Promote `v2_elided_fewshot` to the operating point. File a follow-up to test whether few-shot survives cross-corpus on Hadoop dev@.
+- **0.77 ≤ F1 < 0.85:** modest improvement; few-shot helps but doesn't dominate. Compare with si-bm1 cost-tier escalation; pick whichever architectural path performs better.
+- **F1 < 0.77 (regression below baseline):** few-shot anti-helped, similar to si-qdf. Heavy intervention isn't always better; cheap-tier may over-fit to example shape and miss novel cases. Document and don't promote.
+- **No new FPs introduced:** clean precision win; few-shot is unambiguously beneficial.
+
+**Falsifiers / mind-changers:**
+
+- Cheap-tier model-positives > 50: few-shot turned the prompt too permissive; over-firing. Halt; inspect rationales.
+- Cheap-tier model-positives = 0: few-shot somehow suppressed all positives; prompt is broken. Halt; inspect.
+- Recovery of dropped TPs comes with precision drop > 0.30: few-shot trained on shape, not substance. Document the failure mode for the rubric-engineering finding.
+- The 5 example IDs themselves get classified differently than their few-shot labels by the cheap-tier (i.e., the model can't even reproduce the labels of its own examples on a clean pass): the prompt isn't being honored; vLLM template issue or instruction-following ceiling hit.
+
+**Anti-contamination:** the bead executor must NOT use the post-si-e5q expanded labels for example selection. The 5 examples are frozen by the IDs above and were chosen from the original 153-item v2 pool, not from any expanded set.
+
+### Results *(append per sub-experiment after each completes)*
+
+
 
 **Question:** Three independent experiments dispatched as a parallel work batch under the autonomous-execution principle (memory: `no_epistemic_downside.md`). Each is well-specified with a pre-reg block, decision rule, and falsifiers. They share no resource conflicts and can run concurrently.
 
