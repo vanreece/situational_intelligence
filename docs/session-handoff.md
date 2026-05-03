@@ -2,64 +2,85 @@
 
 > Per `docs/orchestration.md`. Structured for the user's strategy session: read top-down, make calls, file new auto-executable beads, leave.
 
-## Last updated: 2026-05-03 (after parallel-batch with cost-tier escalation validation)
+## Last updated: 2026-05-03 (after U1 first cross-corpus test landed)
 
 ---
 
-## What landed since last strategy session
+## Headline this session
 
-**Parallel batch (4 strategy-fork beads → all closed):**
+**U1 first data point: schedule_change_announcement does NOT generalize zero-shot to Hadoop common-dev at the cheap tier.** Pre-reg falsifier triggered cleanly:
 
-- **si-e5q** — Labeled the 5 frontier-only discoveries from si-2z6. **All 5 came back POSITIVE** under fresh independent v2-rubric application: three NEW-version-introduction re-rolls (1.2.15, 1.2.18, 1.2.19), a Thrift-freeze policy proposal, and an in-flight RC trajectory change (rc3 inserting a delay before -final). Expanded label pool 153 → 158 items (8 → 13 POS).
-- **si-t3l** — Hadoop common-dev@ 2014 harvested (3503 messages). Top-10 sender domains span 4 distinct (`apache.org`, `builds.apache.org`, `cloudera.com`, `hortonworks.com`); broader distribution shows clear Cloudera/Hortonworks/Yahoo/Intel/Oracle/MapR multi-org coordination. **Corpus accepted as the second slice.** List-name correction recorded: original pre-reg said `dev@hadoop.apache.org` (doesn't exist); selected `common-dev@hadoop.apache.org` after probing the four sublists.
-- **si-bm1** — Cost-tier escalation simulation **validated**. Pool **P2** (NEG ∩ vote/proposal subject ∩ root-or-body>800 chars; 241 items, **33% of corpus**) reaches **F1 = 0.960** — within 0.003 of full-frontier F1=0.963 — at one-third the inference cost. Pre-reg accuracy mostly hit; P1 narrow underperformed (catches dropped TPs but misses [VOTE]-root discoveries). **The architecture's cost-tier hierarchy is empirically validated for this detector.**
-- **si-q0i** — Few-shot scaffolding produced **no F1 lift**. v2_elided_fewshot reached F1=0.625 against same-eval-set baseline 0.625. Composition shifted (recovered 1 frontier-discovery, lost Op-13 to a regression — "shape budget" hypothesis filed as si-dku). Heavy structure steers toward example surface form, not toward underlying rubric concept. Don't promote.
+| metric | Cassandra cheap-tier | Hadoop cheap-tier (filtered) |
+|--------|---------------------:|-----------------------------:|
+| F1 | 0.5556 | **0.359** |
+| Precision (pool-direct) | 1.000 | 0.882 |
+| Recall (extrapolated) | 0.385 | 0.226 |
+| Model-positive rate | 6.6% | 1.3% |
 
-**Two key infrastructure findings recorded as memory updates:**
+Decision-rule branch: **over-fit to Cassandra**. Per the pre-reg, no rubric retuning in this bead — failure modes documented, follow-ups filed.
 
-1. **Cheap-tier `p_positive` distribution is sharply bimodal at temperature=0 + guided JSON.** 726 items at p_pos<0.01, 5 at >0.90, **zero in [0.01, 0.90]**. Logprob-based borderline triage is structurally unavailable in this configuration; use content-structural criteria. (memory: `homelab_qwen.md`)
-2. **For closing cheap-tier capability-ceiling gaps, bet architecture over prompt-craft.** Cost-tier escalation (si-bm1: F1+0.40) dominates few-shot scaffolding (si-q0i: F1+0.00). (memory: `messages_are_not_single_thesis_streams.md`)
+The architectural commitment to cost-tier escalation (just promoted to `architecture.md` 2026-05-03) gets its first stress test: **the Cassandra-tuned operating point can't be assumed to work on Hadoop.** Each new corpus needs its own labeled-eval validation. That's exactly the discipline the architectural commitment encodes.
 
-**Detector status:** `schedule_change_announcement` Prototype operating point is now **two-tier**:
-- Cheap-tier-v2_elided handles 67% of corpus (model-NEG outside the P2 pool)
-- Frontier-tier-v2_elided triages the 33% in P2 pool (NEG ∩ vote/proposal-marker subject ∩ root-or-body>800)
-- Combined F1 = 0.960, precision 1.000, recall 0.923 against the 158-item expanded v2 label set
+---
+
+## What landed since last strategy session (this session)
+
+**Architectural commitment promoted (commit `22cc2dc`):**
+- Cost-tier escalation added as a cross-cutting principle in `architecture.md`, with the workflow ("define eval, define tolerance, measure, then escalate") as the commitment, not "always escalate." Per-detector tolerance setting documented.
+- Negative principle in "What we deliberately do not do": no escalation in production without labeled-eval comparison establishing acceptable loss.
+- U3 finding from si-bm1 encoded: borderline-pool rules default to content-structural cues (subject patterns, body shape) rather than logprob bands, because temperature=0 + guided-JSON yields bimodal-degenerate logprobs.
+
+**si-2wh (cross-corpus generalization test, U1) — closed (commits `e3d461c`, `7093cd9`, `3767d34`):**
+- Hadoop common-dev@ 2014 corpus filtered (`src/harvest/filter_bots.py`, drops `jira@apache.org` + `*@builds.apache.org`): 3503 → 1355 messages.
+- Cheap-tier v2_elided run on filtered corpus: 17 model-positives (1.3% rate vs Cassandra's 6.6%).
+- Opus subagent labeled all 17 model-positives + 50 random model-negatives via clean anti-contamination protocol.
+- F1 = 0.359, precision 0.882, extrapolated recall 0.226. Below the [0.46, 0.66] pre-reg band.
+
+**Two failure modes found in Hadoop:**
+1. **Domain-specific FPs:** Hadoop has JIRA per-issue version-target rituals ("target version set to 2.4.0", "I've created version 2.5.0 in jira") that don't exist in Cassandra. The cheap-tier reads them as version-target shifts. The v2 rubric needs anti-anchor language for this class.
+2. **Domain-general FNs:** short reply-form proposals like "How about planning on hadoop-2.8 by late Jan?" and "I can abandon the 2.3rc, and then release current branch-2 as 2.3. Would that be better?" The cheap-tier's thread-context blindness is **the same shape as Cassandra's dropped TPs** — confirming this is a cross-domain weakness, not a Cassandra peculiarity.
+
+**Subject-marker conventions (informs si-03o):**
+- `[VOTE]` transfers (287 occurrences in Hadoop, similar role to Cassandra)
+- `Proposal:` does **not** transfer (0 occurrences in Hadoop)
+- Hadoop analogs: `[DISCUSS]` (66 occurrences), `Thinking ahead` (62 occurrences)
+
+**si-oew (filter Apache JIRA/Jenkins) closed** as part of si-2wh; `src/harvest/filter_bots.py` is reusable for any future Apache-list harvest.
+
+**Memory updates:**
+- `messages_are_not_single_thesis_streams.md` — appended cross-corpus confirmation that the cheap-tier's reply-shape weakness is project-level, not Cassandra-specific. Substrate-demand rule sharpened: case (b) "information in prompt but cheap-tier can't extract" is the dominant cross-domain failure mode for any reply-message-disambiguation detector.
 
 ---
 
 ## Strategic implications worth your judgment
 
-### 1. Cost-tier escalation pattern is now project-architectural, not detector-specific
+### 1. The detector is NOT promoted to "Validated (two corpora)"
 
-si-bm1 demonstrated that a content-structural borderline criterion (subject markers + body length) closes the cheap-tier-vs-frontier gap on this detector. The pattern itself is corpus-agnostic — the *criterion specifics* (`[VOTE`, `Proposal:`) are project-specific Apache-list conventions. **For your call:** should we promote cost-tier escalation to a first-class architectural commitment in `docs/architecture.md`, or treat it as a per-detector pattern that gets re-derived each time? My read: promote it. The pattern is general; the criteria are detector-tuned.
+`schedule_change_announcement` stays at **Prototype (Cassandra-only)** in `detector-catalog.md`. Cross-corpus generalization at the cheap tier is the test that just failed.
 
-### 2. Few-shot doesn't substitute for escalation
+### 2. The cost-tier-escalation architectural commitment is intact and tightened
 
-The si-q0i result is informative both as a negative result and as a sharpening of the "heavy structured prompts steer reliably" lesson. They steer toward the structure's surface form, not toward the underlying concept. **For your call:** worth memorializing in architecture.md as a design principle, or just leave in memory? My read: keep it in memory and the q0i Results block; it's a tactical lesson, not architectural.
+The architectural promotion we did this session passes its first stress test correctly: the per-detector empirical-validation discipline is exactly what's needed when an operating point doesn't transfer. The commitment doesn't say "Cassandra's tuning works everywhere"; it says "validate per-detector, per-corpus, before adopting." Hadoop is now a corpus where the operating point hasn't been validated. That's the system working as designed.
 
-### 3. The cross-corpus generalization test (U1) is now unblocked
+### 3. The domain-general reply-shape weakness is a real architectural finding
 
-Hadoop common-dev@ 2014 is in `data/processed/`. The natural next experiment is **si-2wh** (cross-corpus eval of `schedule_change_announcement` v2_elided), now top of the ready queue at P2. Caveat: ~64% of Hadoop common-dev traffic is `jira@apache.org` cross-posts and Jenkins CI noise — needs filtering before classifier runs (filed as si-oew, P3). **For your call:** filter-then-classify, or run on raw and accept the noise dilution? My read: filter first; the filter is trivial (drop messages where `from_email` matches `jira@apache.org` or domain `builds.apache.org`) and Cassandra dev@ didn't have this issue, so apples-to-apples comparison wants the noise gone.
+Both Cassandra's 3 dropped TPs and Hadoop's 2 sampled FNs share the same shape: short reply-form proposals where the schedule-change semantics depend on the parent-message thesis. The cheap-tier doesn't reach back into thread context. **Any future detector that depends on this shape should plan for cost-tier escalation OR a context-injection substrate from day one.** Filed in memory; worth surfacing to the architecture document if a second detector confirms.
 
-### 4. Operating point on `schedule_change_announcement` is now a two-tier detector
+### 4. The strategic fork (your call)
 
-`detector-catalog.md` likely needs an update reflecting the new operating point: cheap-tier-v2_elided + frontier-on-P2-pool. **For your call:** update the catalog now, or wait for cross-corpus confirmation? My read: update with a note that the architecture is validated on Cassandra; cross-corpus is the next test.
+The U1 result opens four possible next moves. Listed in roughly increasing scope:
 
----
+**A) Run si-03o — frontier-on-Hadoop + cost-tier escalation transfer test.** This tests whether the architectural pattern (cheap + frontier-on-borderline) recovers F1 even when the cheap tier baseline is poor. Cost: real Anthropic API spend, ~1355 Hadoop messages × Opus inference ≈ rough order $40–80 depending on prompt token counts. Most informative single test for the architectural commitment.
 
-## Needs attention (failures or under-specified beads)
+**B) Refine the v2 rubric for Hadoop's JIRA-bookkeeping FPs and reply-shape FNs, then re-run.** Risk: rubric-engineering treadmill — chasing per-corpus FP shapes contradicts the project's "binary-per-category classifiers, additive growth" architectural principle. Not recommended.
 
-**None.** All four beads closed cleanly with Results blocks. Six follow-up `idea`-status beads filed.
+**C) Triangulate with a third corpus.** A second sublist (e.g., Hadoop hdfs-dev or yarn-dev — already filed as si-cga) or a non-Apache project would tell us whether the failure is Cassandra-Hadoop pair-specific or detector-general. Lower cost than A; less direct architectural-test signal.
 
----
+**D) Pivot to a different detector.** One detector failing to generalize is one data point. Trying a different binary classifier on the same two corpora would broaden U1's evidence base. New detector-catalog work.
 
-## Next auto-executable (if you green-light orchestrator runs)
+**My read:** A is the highest-leverage single move because it answers the *architectural* question directly. B is anti-architectural. C and D both broaden evidence at the cost of postponing the architectural verdict.
 
-The auto-executable label was used as the lock-in mechanism for the four beads run this session. Now that they're closed, the new follow-up beads are `idea`-status and need strategy-session input before becoming auto-executable. The closest-to-ready:
-
-- **si-2wh** (cross-corpus eval, P2): well-specified by its description, just needs a pre-reg block + decision rule + falsifiers committed. Could be elaborated and labeled auto-executable in ~10 minutes.
-- **si-oew** (filter Apache JIRA/Jenkins bots, P3): trivial implementation; depends on whether we adopt as a permanent harvest-pipeline preprocessing step or a one-off classifier flag. A small strategy call.
-- **si-03o** (run P2 cost-tier escalation on Hadoop common-dev, P3): blocked-by si-2wh logically (need cheap+frontier predictions on Hadoop first).
+The cost question for A is real but measurable — and the result settles whether the cost-tier escalation pattern holds when cheap-tier baseline is weak. If escalation works on Hadoop too, the architectural commitment is much stronger. If escalation also fails on Hadoop, the commitment is much narrower than we thought.
 
 ---
 
@@ -67,47 +88,30 @@ The auto-executable label was used as the lock-in mechanism for the four beads r
 
 | Bead | What's needed |
 |------|---------------|
-| **si-2wh** | Pre-reg block — predicted F1 against Hadoop, decision rule for "did the operating point transfer," falsifiers. Probably the most important next experiment: U1 cross-domain generalization. |
-| **si-oew** | Decision: filter as a harvest-pipeline preprocessing step (preferred — applies generally) or as a classifier-side `--exclude-bots` flag (per-detector). |
-| **si-03o** | Pre-reg + adapted P2 criterion. The `[VOTE]`/`Proposal:` regex is Apache convention; Hadoop *also* uses `[VOTE]` so transfer should be partial. Ideal: same regex, different distribution. |
-| **si-eb5** | Worth pursuing? The "2.1 rc3?" miss is one message in 731. Low-priority; unblock by deferring or by extending P2's regex. |
-| **si-dku** | Worth investigating? The "shape budget" hypothesis is interesting but tangential to the production path. |
-| **si-cga** | Decision: harvest the other three Hadoop sublists for richer cross-sublist coverage, or stop at common-dev? |
-| **si-r6h, si-jl0** | Still umbrella/under-specified — re-visit when 2-3 more substrate pieces have proven themselves. |
-| **si-kxh** | Logprob calibration — but si-bm1 just demonstrated logprobs are bimodal at temperature=0. The bead may need re-framing: "calibrate via response self-consistency or temperature>0 sampling, not via Platt on bimodal-degenerate logprobs." |
-| **si-z0a** | Code-block bias investigation; lower priority since the operating point on this detector is now two-tier. |
-
----
-
-## Open architectural questions worth a strategy moment
-
-- **Promote cost-tier escalation to an architectural commitment in `architecture.md`?** The pattern is now empirically validated on one detector (F1=0.960, 33% inference cost vs 99%). Adoption decision is real.
-- **Cross-corpus generalization test cadence:** run U1 against Hadoop common-dev now (with bot-filter), or wait for a third corpus to break Cassandra+Hadoop overfitting concerns?
-- **Bot-filter as substrate?** The Apache JIRA/Jenkins noise is an Apache-list convention. Adding it to the harvest pipeline encodes a specific convention; making it a classifier flag stays per-detector. Architecture call.
+| **si-03o** (cost-tier escalation on Hadoop) | Decision: run? (~$40–80 in Anthropic API spend.) Adapted P2 criterion: drop `Proposal:`, substitute `[DISCUSS]` and/or `Thinking ahead`, OR redefine at higher abstraction (project-specific marker sets). |
+| **si-cga** (other Hadoop sublists) | Decision: harvest, or focus the available time on si-03o's architectural test? |
+| **si-z0a** (code-block bias) | Lower priority since the operating point on this detector is now in flux. |
+| **si-r6h, si-jl0** | Still umbrella/under-specified. |
+| **si-kxh** (logprob calibration) | Re-frame: bimodal-degenerate logprobs from si-bm1 finding mean Platt/isotonic on chosen-token logprobs is degenerate. Bead needs new direction. |
+| **si-eb5** | Defer until Hadoop direction settles. |
+| **si-dku** (Op-13 shape-budget) | Defer; tangential. |
 
 ---
 
 ## Bd state
 
-- 10 ready issues; 0 in_progress; 0 blocked.
-- Closed this session: si-e5q, si-t3l, si-bm1, si-q0i (4 total).
-- Filed as `idea`-status follow-ups: si-2wh, si-03o, si-oew, si-dku, si-cga, si-eb5 (6 total).
-- The four-bead strategy-fork batch produced six new ideas — natural wavefront expansion at ~1.5x.
+- 9 ready issues; 0 in_progress; 0 blocked.
+- Closed this session: si-2wh, si-oew (2 total — plus the 4 from earlier today).
+- This session's chain: si-2wh pre-reg → harvest filter → cheap-tier run → Opus pool labeling → score → close. Two-commit pre-reg discipline held end-to-end.
 
 ## Git state
 
-- Local commits ahead of `origin/main`: ~30+ (user said they'll handle pushes).
-- Working tree otherwise clean after this session's commits.
-
-## Memory updates this session
-
-- `homelab_qwen.md` — added the bimodal-logprob finding (zero items in [0.01, 0.90]; logprob-based borderline triage structurally unavailable at temperature=0 + guided JSON).
-- `messages_are_not_single_thesis_streams.md` — appended si-bm1 architectural resolution: cost-tier escalation dominates prompt-craft for capability-ceiling cases.
+- Local commits ahead of `origin/main`: now ~9+. User said they'll handle pushes.
+- Working tree otherwise clean.
 
 ## Environment notes
 
-- Homelab: stable. v2_elided_fewshot run on 731 messages: 58.6s @ concurrency=32 (consistent with prior throughput norm).
-- 7 prompt variants in classifier: + `v2_elided_fewshot` (si-q0i, examples loaded from `src/classify/prompts/v2_fewshot_examples.txt`).
-- Eval harness now scores against the 158-item expanded v2 label set. `pool_and_extrapolate.py` v0.2.0 still authoritative.
-- New analysis scripts: `src/evaluate/analyze_bm1_escalation.py`, `src/evaluate/analyze_q0i_fewshot.py` (both committed).
-- New harvest: `data/processed/apache/common-dev@hadoop.apache.org/2014-*.jsonl` (gitignored; reproducible from `src/harvest/apache_mbox.py`).
+- Homelab: stable. Cheap-tier v2_elided on 1355-msg filtered Hadoop ran in ~71s @ concurrency=32.
+- Filtered Hadoop corpus exists at `data/processed/apache/common-dev@hadoop.apache.org-filtered/2014-*.jsonl` (gitignored).
+- Hadoop labels at `labels/schedule_change_announcement/hadoop-common-dev-2014-labels-v2.jsonl` (committed; 67 entries: 17 pool + 50 random_sample).
+- `src/harvest/filter_bots.py` is reusable for any future Apache-list harvest.
