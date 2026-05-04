@@ -69,32 +69,48 @@ These detect categories of content in unstructured text. Binary-per-category, de
 
 ### schedule_change_announcement
 
-**Status:** **Prototype** (promoted 2026-05-02 via si-rrz; see `experiment-log.md` 2026-05-02 entries)
+**Status:** **Validated (2 corpora)** — promoted 2026-05-04 after v3_elided cleared the decision rule on both Cassandra dev@ 2014 and Hadoop common-dev@ 2014. (Was Prototype 2026-05-02 via si-rrz; cross-corpus test on Hadoop initially failed with v2 in si-2wh, then v3 closed the gap.)
 **Asks:** Does this message announce, propose, or imply a change to a previously-stated date or version target for a release, milestone, or planned work? Procedural mechanics (vote retries, vote-period adjustments, +1/-1 votes) explicitly excluded.
-**Why it matters:** Schedule changes are the primary input to propagation logic. The v2 rubric specifically targets *substantive* schedule changes — what would change a senior operator's planning picture — rather than every release-process event.
+**Why it matters:** Schedule changes are the primary input to propagation logic. The rubric specifically targets *substantive* schedule changes — what would change a senior operator's planning picture — rather than every release-process event.
 **Evidence:** Message text at quote-depth=2, with quoted line content elided to `[QUOTED]` markers (preserves "this is a thread reply" structure without the cheap-tier anchoring on quoted phrases).
 **Output:** Boolean + p_positive (logprob-derived) + evidence_quote (constrained to author's new content) + rationale.
-**Generalization:** Validated on Apache Cassandra dev@ 2014; not yet tested cross-corpus (filed as si-t3l).
+**Generalization:** Validated on **Apache Cassandra dev@ 2014** and **Apache Hadoop common-dev@ 2014** (filtered to remove `jira@apache.org` cross-posts and `*@builds.apache.org` Jenkins traffic).
 
-**Operating point (Cassandra dev@ 2014):**
+**Operating point: `v3_elided` (current; adopted 2026-05-04)**
 - Cheap-tier model: Qwen3-Coder-30B-A3B-Instruct-gptq-4bit at temperature=0
-- v2 system prompt (1,704 chars; hash `ba10bafd2d271613` for v2_elided variant)
+- v3 system prompt (3,524 chars; hash `57e9f055f0c5639e`)
 - Body shape: depth=2 quote filter + `elide_quoted_lines` (each quoted-line content → `[QUOTED]`)
-- Pool-direct scorecard against 153-item OpusLabel-v2: F1 = 0.769, precision = 1.000, recall = 0.625
-- Wall-clock: ~263s per 731-message corpus on the homelab
+- Pool-direct scorecards (against existing labeled pools):
+  - **Cassandra dev@ 2014 (158-label expanded pool):** F1 = 0.6364, precision = 0.7778, recall = 0.5385
+  - **Hadoop common-dev@ 2014 (76-label expanded pool, 17 v2-pool + 50 random + 9 v3-pool):** F1 = 0.9583, precision = 0.9583, recall = 0.9583
+- Wall-clock: ~42s per 731-message Cassandra corpus, ~75s per 1355-message filtered Hadoop corpus (concurrency=32, --no-logprobs)
+
+**v3 vs v2 deltas:**
+- v3 adds a POSITIVE clause for question-form / conditional-form proposals ("How about X by late Jan?", "Would that be better?") with a safety net for clarifying-someone-else's-proposal cases (the safety net the cheap-tier doesn't always honor — accounts for the 2 new Cassandra FPs in the v3 result).
+- v3 adds a NEGATIVE clause for JIRA bookkeeping notices ("created version X in JIRA", "target version set to X (rNNNN)") — domain-specific to Apache projects with heavy JIRA rituals.
+- Cassandra trade: +2 TPs recovered (Op-9 Sylvain "1.2.18 re-roll", Shuler "1.2.18 re-roll?"), -2 new FPs in `Re: Proposed changes to C* Release Schedule` thread (rhetorical questions misread).
+- Hadoop trade: -2 FPs (both JIRA-bookkeeping cases dropped), +1 TP recovered (Arun "How about hadoop-2.8 by late Jan?"); +7 TPs surfaced from previously-unsampled pool. 1 FN remains (Arun "abandon the 2.3rc and re-release as 2.3"); 1 new FP (Subramaniam feature-inclusion request misread as schedule).
 
 **Known failure modes:**
-- 3 specific TPs lost to elision because they require version-state-at-time disambiguation (cheap-tier can't tell "1.2.18" is a NEW version vs "the next routine patch" without quoted thread context). Recoverable with substrate work (si-qdf typed version-state tags).
-- Eval-harness recall extrapolation has a known stratification bug (si-2t4); use pool-direct counts for honest reporting until that's fixed.
+- **Cassandra:** 1 of 3 dropped TPs from the v2_elided era still missed (Ellis "1.2.17 takedown" — declarative not question-form). 2 new FPs in Cassandra are rhetorical questions about *someone else's* proposal — fix 2's safety-net language doesn't always steer the cheap-tier.
+- **Hadoop:** 1 conditional-question TP missed ("I can abandon the 2.3rc and re-release as 2.3. Would that be better?" — version-semantics shift inside conditional framing). 1 borderline FP (JIRA target-version retargeting — diagnostic flagged this case as "unsure" boundary).
+- **General (cross-corpus):** Cheap-tier `p_positive` distribution at temperature=0 + guided JSON is sharply bimodal (zero items in [0.01, 0.90] across both corpora) — logprob-based borderline triage is structurally unavailable. Cost-tier escalation routing must be content-structural (subject markers, etc.), not confidence-based.
 
 **Calibration data:**
-- Logprobs at temperature=0 are usable for ranking but not as raw confidence (Brier scores varied 0.07-0.20 across depth/variant sweeps).
+- Logprobs at temperature=0 are deterministic in chosen-token (essentially binary). Useful for hard yes/no, not for confidence intervals.
 - Per-run noise floor at depth=2 is F1 ±0.015 (si-pfo, 6-run measurement).
+- vLLM occasional parse error (~0.07% rate observed); resumable classifier handles by skip + retry.
+
+**Cost-tier escalation operating points:**
+- **Cassandra v2 (validated, si-bm1):** P2 pool (NEG ∩ vote/proposal subject ∩ root-or-body>800) at 33% of corpus reaches F1=0.960 — within 0.003 of full-frontier F1=0.963.
+- **Cassandra v3:** not yet measured (would require frontier-v3 on Cassandra; existing frontier predictions are v2-prompt).
+- **Hadoop v3:** not yet measured (si-03o, in-flight). Note: with v3 cheap-tier already at F1=0.9583, the headroom for cost-tier escalation is small; the architectural-test value remains but the production-cost-savings argument is weaker.
 
 **Rubric & prompt provenance:**
-- v1 rubric frozen in si-qhz commit 7d64413 (F1 = 0.405, deprecated)
-- v2 rubric frozen in si-d6m commit 3313c2a (F1 = 0.727 with v2_strict body shape)
-- v2_elided body shape added in si-rrz commit 277d52f (F1 = 0.769; current operating point)
+- v1 rubric frozen in si-qhz commit `7d64413` (F1 = 0.405, deprecated)
+- v2 rubric frozen in si-d6m commit `3313c2a` (F1 = 0.727 with v2_strict body shape)
+- v2_elided body shape added in si-rrz commit `277d52f` (F1 = 0.769 on 153-item Cassandra pool)
+- **v3 rubric (current)** frozen in commit `e48c178` after diagnostic Opus pass on Hadoop failures (`docs/diagnostic-v2-prompt-vs-hadoop.md`). Two narrow clauses: question-form POSITIVE + JIRA-bookkeeping NEGATIVE. Adopted as operating point in commit `9533863`.
 
 ### risk_escalation_language
 
