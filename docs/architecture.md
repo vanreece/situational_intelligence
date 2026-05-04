@@ -32,6 +32,7 @@ The system has five layers. Each layer has a different job, a different model-ca
 
 **Discipline:**
 - Add new categories by adding new binary classifiers, not by retraining a multi-class classifier.
+- **Narrowness over consolidation.** The principle is *minimum latitude per classifier*, not *minimum classifier count*. When a new corpus surfaces failures, first try a small additive clause to the shared rubric. If the clause regresses prior corpora — or if it forces the rubric to navigate genuinely divergent domain conventions — fork into per-corpus variants (e.g., `schedule_change_announcement.cassandra` and `.hadoop`). Each variant stays narrow; routing happens upstream by source. Maintenance scales with N corpora, but each rubric optimizes independently and can't silently regress others. The fork is the default move when consolidation costs narrowness, not a last resort.
 - Track "matched nothing" and "matched many" as first-class signals worth investigating.
 - Periodically sample the matched-nothing bucket with a heavier model to discover patterns worth promoting to new detectors.
 
