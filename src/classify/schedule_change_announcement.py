@@ -102,6 +102,49 @@ Output strict JSON:
   "rationale": "<one-sentence explanation, including whether the evidence is in new content or quoted material if relevant>"
 }"""
 
+# v3 (si-2wh diagnostic, 2026-05-04): adds two narrow clauses to v2 to address
+# the Hadoop common-dev failure modes documented in si-2wh.
+#   Fix 1 (NEGATIVE): JIRA bookkeeping notices — "created version X in JIRA",
+#     "target version set to X" — are administrative metadata, not schedule
+#     changes. Closes both Hadoop FPs (FP-1 Arpit, FP-2 Arun).
+#   Fix 2 (POSITIVE): question-form / conditional-form proposals are still
+#     proposals when they're the author's substantive suggestion. Closes both
+#     Hadoop FNs (Arun "How about hadoop-2.8 by late Jan?", Arun "Would that
+#     be better?"). Diagnostic flagged moderate regression risk on Cassandra.
+# Body shape (depth=2 quote elision) unchanged from v2_elided. Pre-reg in
+# docs/experiment-log.md (2026-05-04 entry).
+SYSTEM_PROMPT_V3 = """You are reviewing a single message from the Apache Cassandra developer mailing list (dev@cassandra.apache.org). Determine whether the message announces, proposes, or implies a change to a previously-stated date or version target for a release, milestone, or planned work.
+
+The change must affect a substantive deliverable (a release date, a feature target version, a release cadence). Procedural mechanics around an in-flight release process — vote retries, vote-period adjustments, +1/-1 votes — are NOT schedule changes; they are the standard release process executing normally.
+
+POSITIVE — the author IS announcing/proposing/implying a substantive schedule change:
+- Explicit date changes ("I propose postponing release of 1.2.17 until next week")
+- Version target shifts ("we're planning to move to file-based hint storage in 3.0", "it's too late for a schema change in 2.1")
+- Release cadence proposals ("I'd love it if we could modify the C* release cycle to 4 months")
+- Acknowledgments that a previously-stated timeline will not be met ("we still have a lot to do before X")
+- Setting a new target date when a previous expectation existed
+- Re-rolls that introduce a NEW version not previously planned (e.g., "let's do a 1.2.18" when 1.2.17 was the last announced)
+- Question-form or conditional-form proposals — "How about X by late Jan?", "Should we move to monthly cadence?", "Would it be better to abandon the rc and re-release as X?" — are still proposals when the question is the author's substantive suggestion (not just clarifying what someone else said). Tentative phrasing ("thoughts?", "would that be better?") does not downgrade a substantive proposal to discussion.
+
+NEGATIVE — these are NOT schedule changes:
+- Vote-failure rerolls of an already-planned release ("vote closed; we'll re-roll once X is fixed") — the release was always planned to happen when the vote passed; one failed vote attempt is procedural, not a schedule change. The release is still in-flight on the same broad schedule.
+- Vote-period adjustments ("I'll shorten the vote period to 48h", "extending the vote 24 more hours") — mechanic, not date.
+- +1 / -1 votes by themselves, even when the parent vote announcement is in the thread — the vote reply is procedural.
+- Discussion of current schedules without proposing changes ("X is on track")
+- Initial schedule announcements when no prior expectation existed
+- Pure technical discussion with no schedule reference
+- JIRA bookkeeping notices — "I've created version X in JIRA", "target version set to X (rNNNN)", "merged to branch-N and target version set to X" — are administrative metadata changes, not schedule changes. They describe work already done or make a version selectable in the issue tracker; the schedule decision happens elsewhere in the thread.
+
+CRITICAL — quoted text rule:
+If your evidence for a positive judgment would be a phrase that appears in the QUOTED part of the message (lines starting with > or otherwise marked as from an earlier message in the thread), the answer is NEGATIVE. Judge based on what THIS author wrote in THIS message, not what they are quoting from someone else. The author is referencing the quoted material, not asserting it.
+
+Output strict JSON:
+{
+  "is_schedule_change_announcement": true | false,
+  "evidence_quote": "<verbatim span from THIS author's new content (NOT quoted lines), or null if false>",
+  "rationale": "<one-sentence explanation, including whether the evidence is in new content or quoted material if relevant>"
+}"""
+
 USER_TEMPLATE = """Message:
 From: {from_raw}
 Subject: {subject}
@@ -179,7 +222,7 @@ GUIDED_JSON_SCHEMA = {
 }
 
 
-PROMPT_VARIANTS = ("current_baseline", "new_only", "new_with_marked_quoted", "v2_strict", "v2_elided", "v2_elided_tagged", "v2_elided_fewshot")
+PROMPT_VARIANTS = ("current_baseline", "new_only", "new_with_marked_quoted", "v2_strict", "v2_elided", "v2_elided_tagged", "v2_elided_fewshot", "v3_elided")
 
 
 def _system_prompt_for(variant: str) -> str:
@@ -191,6 +234,8 @@ def _system_prompt_for(variant: str) -> str:
                 f"v2_elided_fewshot requires {_FEWSHOT_EXAMPLES_PATH} (not found)"
             )
         return SYSTEM_PROMPT_V2_FEWSHOT
+    if variant == "v3_elided":
+        return SYSTEM_PROMPT_V3
     if variant in ("v2_strict", "v2_elided", "v2_elided_tagged"):
         return SYSTEM_PROMPT_V2
     return SYSTEM_PROMPT
@@ -264,13 +309,15 @@ def build_request(message: dict, quote_depth: int | None = None,
             from_raw=from_raw, subject=subject, date=date,
             body_text=body[:MAX_BODY_CHARS],
         )
-    elif prompt_variant in ("v2_elided", "v2_elided_fewshot"):
+    elif prompt_variant in ("v2_elided", "v2_elided_fewshot", "v3_elided"):
         # v2_elided uses the same v2 system prompt as v2_strict, but each quoted
         # line's content is replaced with [QUOTED]. Tests whether the v2 precision
         # shortfall is entirely caused by anchoring on strong quoted text.
         # quote_depth filters lines beyond depth N; surviving quoted lines get elided.
         # v2_elided_fewshot (si-q0i): identical body shape; the difference is in the
         # system prompt — see SYSTEM_PROMPT_V2_FEWSHOT and _system_prompt_for().
+        # v3_elided (si-2wh-followup): identical body shape; system prompt adds two
+        # narrow clauses (JIRA-bookkeeping NEG, question-form proposals POS).
         depth = quote_depth if quote_depth is not None else 999
         body = elide_quoted_lines(body, max_depth=depth)
         user_msg = USER_TEMPLATE.format(

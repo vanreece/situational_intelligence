@@ -61,6 +61,72 @@ Negative results compound as much as positive ones. Skipping the pre-reg block i
 
 ---
 
+## 2026-05-04: v3_elided — minimal rubric adaptation for Hadoop common-dev (precursor to si-03o)
+
+**Question:** Does a 2-clause rubric extension (JIRA-bookkeeping NEGATIVE + question-form-proposal POSITIVE) close the Hadoop generalization gap *without* regressing Cassandra performance? If yes, v3_elided becomes the operating point that si-03o (cost-tier escalation transfer) tests against. If the rubric tweak alone gets us to the F1 floor we need on Hadoop, we may not even need cost-tier escalation there. Either way, the result decides what we test in si-03o.
+
+**Beads issues:** filed inline below as work, no separate bd issue (this is the precursor diagnostic-driven foray for si-03o; not a new line of investigation). The current si-03o bead is unaffected by the v3 work — it tests cost-tier escalation, regardless of which rubric variant becomes the operating point.
+
+**Origin:** the diagnostic Opus pass (`docs/diagnostic-v2-prompt-vs-hadoop.md`, 2026-05-04) recommended option (b): apply 2 narrow rubric fixes before si-03o, with specific clause text. v3_elided implements those clauses verbatim.
+
+### Pre-registration *(commit this block before running)*
+
+**Setup:**
+
+- **New variant `v3_elided`:** identical body shape to v2_elided (depth=2 quote filter + line-content elision). Two clause additions to `SYSTEM_PROMPT_V2`:
+  1. **POSITIVE (added between "Setting a new target..." and "Re-rolls..."):** "Question-form or conditional-form proposals — 'How about X by late Jan?', 'Should we move to monthly cadence?', 'Would it be better to abandon the rc and re-release as X?' — are still proposals when the question is the author's substantive suggestion (not just clarifying what someone else said). Tentative phrasing ('thoughts?', 'would that be better?') does not downgrade a substantive proposal to discussion."
+  2. **NEGATIVE (appended to existing list):** "JIRA bookkeeping notices — 'I've created version X in JIRA', 'target version set to X (rNNNN)', 'merged to branch-N and target version set to X' — are administrative metadata changes, not schedule changes. They describe work already done or make a version selectable in the issue tracker; the schedule decision happens elsewhere in the thread."
+- Constant: `SYSTEM_PROMPT_V3` (added to `src/classify/schedule_change_announcement.py`). Prompt-hash: `57e9f055f0c5639e` (v2_elided is `ba10bafd2d271613`). System prompt grows 2764 → 3524 chars (760-char delta).
+- **Run on both corpora:**
+  - Cassandra dev@ 2014: `data/processed/apache/dev@cassandra.apache.org/` (731 messages). Output: `results/detector-runs/schedule_change_announcement/v3/cassandra-2014-predictions-v3-elided.jsonl`.
+  - Hadoop common-dev@ 2014 (filtered): `data/processed/apache/common-dev@hadoop.apache.org-filtered/` (1355 messages). Output: `results/detector-runs/schedule_change_announcement/v3/hadoop-common-dev-2014-predictions-v3-elided.jsonl`.
+  - Concurrency=32, `--no-logprobs`, `--quote-depth 2`. Homelab Qwen3-Coder-30B.
+- **Score against existing labels (the same 158-Cassandra and 67-Hadoop label sets used for v2_elided baselines).** Pool-direct precision and pool-direct + extrapolated recall on each. The eval uses the existing label sets — items v3 newly fires on that aren't yet labeled get flagged as "needs labeling" with item count, NOT counted as TP or FP yet. If those count <5 per corpus, label via a small Opus call before scorecard finalization; if ≥5, raise as a methodology issue.
+
+**Predictions:**
+
+*Cassandra (current v2_elided cheap-tier baseline: P=1.000, R=0.385, F1=0.556 on 158-label expanded pool):*
+
+| metric | predicted | reasoning |
+|--------|-----------|-----------|
+| v3 model-positives in 731 corpus | 5–10 | v2 hit 5; question-form clause may catch Op-9 Sylvain "1.2.18 re-roll" or Shuler "re-roll?" framing; JIRA clause unlikely to drop any v2 TPs since Cassandra doesn't have JIRA-bookkeeping shapes in its TPs. |
+| New TPs recovered | 0–2 | Op-9 and Shuler are partly question-form; might or might not transfer to v3's heuristic. Ellis 1.2.17 takedown is declarative, not question-form, so unaffected. |
+| New FPs introduced | 0–2 | Question-form clause's known regression risk: rhetorical questions misread as proposals. Cassandra has few rhetorical-question subjects in NEGs labeled set, so risk is low. |
+| Cassandra F1 | 0.50–0.70 | Likely tied or slightly improved. Hard floor: v2's 0.556 minus ~0.05 noise. |
+| **Decision-rule guard:** Cassandra F1 ≥ 0.50 | yes | v3 must not regress more than ~0.05 below v2's 0.556. |
+
+*Hadoop (current v2_elided cheap-tier baseline: P=0.882 pool-direct, R=0.226 extrapolated, F1=0.359):*
+
+| metric | predicted | reasoning |
+|--------|-----------|-----------|
+| v3 model-positives in 1355 corpus | 17–30 | v2 hit 17; question-form clause should add ~2 TPs (the two known FNs from the random sample); JIRA clause should drop 2 FPs but not from model-positives count (JIRA NEGs were already cheap-tier-positive); maybe a few more from elsewhere. |
+| Pool-direct precision | 0.95–1.00 | Fix 1 designed to drop both Hadoop FPs; if it does, P jumps from 0.882 to ~1.000. |
+| Random-sample FN rate | 0.00–0.02 | Fix 2 designed to recover both random-sample FNs. Ideal: 0/50 FN rate. |
+| Extrapolated recall | 0.45–0.85 | Wide band: depends on whether question-form clause recovers the dominant Hadoop FN class (interrogative substantive proposals) and how many additional FNs lurk outside the random sample. |
+| Hadoop F1 | 0.55–0.85 | Improvement over v2's 0.359; floor at 0.50 for the decision rule. |
+| **Decision-rule guard:** Hadoop F1 ≥ 0.50 | yes | v3 must improve over v2's 0.359 by at least 0.14 to be worth the rubric maintenance cost. |
+
+**Decision rule:**
+
+- **Cassandra F1 ≥ 0.50 AND Hadoop F1 ≥ 0.50:** v3 transfers cleanly across both corpora; **adopt v3_elided as the new operating point** for `schedule_change_announcement`. Update `detector-catalog.md`. si-03o then runs cost-tier escalation against v3 on Hadoop (the architectural test, with the rubric-ceiling distinguished from the capability-ceiling).
+- **Cassandra F1 ≥ 0.50 AND Hadoop F1 in [0.36, 0.50]:** v3 helps Hadoop modestly but doesn't fully close the gap. The capability-ceiling component is real; si-03o becomes more valuable, not less. Adopt v3 as operating point AND run si-03o with v3.
+- **Cassandra F1 < 0.50 (Cassandra regression):** v3 over-fits Hadoop. Pull back to fix 1 only (drop the question-form POSITIVE clause); make `v3a_elided` and re-test. The question-form clause is the one with non-trivial regression risk; this branch isolates it.
+- **Hadoop F1 < 0.36 (no improvement OR regression on Hadoop):** the rubric fixes don't help. The dominant failure mode is capability-ceiling, not rubric-ceiling. Run si-03o with v2_elided. Document that rubric tweaking didn't close the gap, against the diagnostic's prediction.
+
+**Falsifiers / mind-changers:**
+
+- **v3 model-positives in 731 Cassandra corpus > 15:** question-form clause is over-firing on Cassandra. Halt; inspect rationales; possibly pull back to fix 1 only.
+- **v3 model-positives in 1355 Hadoop corpus > 50:** v3 is too permissive on Hadoop. Halt; inspect.
+- **>5 new v3 model-positives outside the existing 158-Cassandra or 67-Hadoop label set on either run:** the eval set's coverage of v3 positives is too thin; either label the new ones (small Opus run) before finalizing scorecard, or expand the random sample.
+- **Cassandra F1 *improves* by >0.10:** suspiciously good. Verify by hand-sampling 5 new TPs to confirm they're real positives, not v3-tunings catching odd shapes.
+- **Hadoop F1 *exceeds* 0.85:** even better than predicted upper end. Verify; if real, suggests v3 might dominate v2 even on Cassandra and the operating-point change is unambiguous.
+
+**Anti-contamination:** none — this is a re-run of the same cheap-tier classifier on existing corpora with a slightly modified prompt. The labels used for scoring are pre-existing (already committed). No subagent labeling needed unless v3 fires on >5 new IDs outside the label set.
+
+### Results *(commit this block after running)*
+
+---
+
 ## 2026-05-03: si-2wh — Cross-corpus generalization test (U1) of `schedule_change_announcement` on Hadoop common-dev@ 2014
 
 **Question:** Primary U1 (does consequence-correlated detection generalize across program domains?). Apply the *frozen* `schedule_change_announcement` v2_elided operating point to a second corpus without modification — same prompt, same body shape, same rubric. Measure how F1/precision/recall behave on Hadoop common-dev relative to Cassandra dev@. Two outcomes are interesting: (a) the detector transfers cleanly → architecture earns one validated cross-domain hop; (b) the detector breaks → we learn what's domain-tied about either the rubric or the cheap-tier's behavior.
