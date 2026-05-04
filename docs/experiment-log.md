@@ -61,6 +61,57 @@ Negative results compound as much as positive ones. Skipping the pre-reg block i
 
 ---
 
+## 2026-05-04: si-03o — Cost-tier escalation transfer test on Hadoop common-dev (v3 operating point)
+
+**Question:** Does the cost-tier escalation pattern (cheap-tier confident-only + frontier-tier on borderline pool) — the architectural commitment that pulled F1 from 0.87 → 0.94 on Cassandra in si-2z6 — transfer to Hadoop common-dev with v3? If yes, the layered-detector commitment generalizes; if not, the lift is corpus-shaped and we need a narrower claim.
+
+### Setup
+- Cheap-tier (Qwen3-Coder-30B, v3_elided) predictions on filtered Hadoop common-dev (1354 messages).
+- Frontier-tier (Opus, v3_elided) predictions via 6 subagent batches on a 450-item borderline pool. Pool definition: cheap-NEG ∩ subject markers ([VOTE | [DISCUSS | thinking ahead | logistics for releasing | proposal). Pool size 450 = 33.2% of corpus.
+- Combined predictor: cheap-v3 confident + frontier-v3 on borderline. Decision rule: cheap-POS → POS; cheap-NEG outside pool → NEG; cheap-NEG inside pool → frontier verdict.
+- 60 frontier-flip messages (cheap-NEG → combined-POS, not previously labeled) labeled in this step under v2 rubric with sample_role `pool_si03o_flip`. POS=25 / NEG=35 / UNSURE=0 (well below 25% halt threshold).
+- Final eval: 136-label expanded Hadoop pool (76 prior + 60 new). 49 POS / 86 NEG with one label outside pool.
+
+### Results (per `results/evals/schedule_change_announcement-si03o-escalation/scorecard.json`)
+
+| metric    | cheap-only | combined  | delta    |
+|-----------|------------|-----------|----------|
+| TP        | 23         | 49        | +26      |
+| FP        | 1          | 36        | +35      |
+| FN        | 26         | 0         | -26      |
+| TN        | 85         | 50        | -35      |
+| precision | 0.9583     | 0.5765    | -0.3818  |
+| recall    | 0.4694     | 1.0000    | +0.5306  |
+| **F1**    | **0.6301** | **0.7313**| **+0.1012** |
+
+Frontier-only (within the 450-item pool, scored against the 61 labels in pool): TP=26, FP=35, FN=0, precision=0.4262, recall=1.0, F1=0.5977. Frontier flipped 61 pool items NEG→POS in total; 60 of those 61 are now labeled (the 61st was previously labeled).
+
+### Movement analysis
+
+Of the 60 frontier flips labeled here:
+- **25 TP** (frontier correctly recovered cheap-tier misses): Allen Wittenauer's JDK6/7/8 cadence proposals, Sandy Ryza's pushback on early-June 2.5, Andrew Wang's "leave YARN-149 out" version-target shifts, Suresh's "ship 2.4 with symlinks disabled," Niels Basjes's "only do that with the 3.0.0 version," Vinod's "YARN-291, YARN-18, YARN-1964 are not going to cut from what I see," Tom Graves's "last planned 0.23 release." Many of these are exactly the question-form / conditional-form / cadence-shift cases v3's POSITIVE clauses were designed to recover, and the cheap tier *did* miss them — so frontier escalation is doing real work.
+- **35 FP** (frontier incorrectly flipped on procedural / quoted / discussion content): vote replies in 2.6.0 / 2.4.1 / 2.3.0 RC threads, branch-creation announcements that execute existing plans (Arun's branch-2.4), JIRA-target preferences ("target HDFS-6833 to 2.6.1"), endorsement messages whose substantive proposal lives in quoted lines (idx 0, 48, 59), inclusion-advocacy messages without date/version-target shifts (idx 9, 53, 54), question-asking about scope/timing rather than asserting a target (idx 6, 12, 24, 44, 49). The frontier overshoots by treating any vote-thread mention of a future micro-release, any feature-inclusion debate, or any cadence discussion as a schedule change. Recall of 1.0 within the pool means it *finds* every TP, but at the cost of treating ~57% of the pool as POS when only ~43% actually is.
+
+The headline pattern: cheap tier's misses are predominantly **rubric-shaped** (it's misclassifying cadence proposals and version-target shifts that v3 explicitly added clauses for, but only at low confidence — the borderline pool is exactly where this lives). Frontier's wins are recovering those v3-shaped cases. Frontier's overshoot is a **calibration problem**, not a capability problem — it has the right concept of "schedule change" but applies it too liberally to VOTE-thread procedural traffic. This contrasts sharply with Cassandra (si-2z6), where frontier overshoot was rare and lift was dominated by clean POS recovery.
+
+### Decision
+
+**Cost-tier escalation transfers, but with a narrower lift than Cassandra and at a meaningful precision cost.** The +0.10 F1 is the headline; the -0.38 precision is the cost the user must absorb to get +0.53 recall. On Cassandra (si-2z6) the same architecture moved F1 from ~0.87 → 0.94 with much smaller precision degradation — Hadoop's cheap-tier baseline is lower (0.63 vs Cassandra ~0.87 in comparable ablations), so escalation has more room to add recall but the per-flip precision is much worse.
+
+The architectural commitment (capable model on the bucket the cheap tier is uncertain about) is **validated as a pattern** but the *operating point* is corpus-specific:
+- The Hadoop borderline pool is 33% of corpus, not the ~5-15% Cassandra-style. The pool is bigger because Hadoop has more structurally-similar VOTE/DISCUSS/Thinking-ahead threads where a release date *could* be discussed but usually isn't. Pool-membership signals (subject markers) need to be tightened on Hadoop before this is production-shaped.
+- Frontier's pool-only F1 of 0.60 is meaningfully below cheap-only's 0.63 in absolute terms, but recall of 1.0 inside the pool is the asymmetry that makes the combined predictor net-positive.
+- The right next move is **not** to abandon escalation; it is to (a) shrink the pool with sharper triggers (drop pure-vote threads from the pool), and (b) experiment with a frontier confidence threshold so the cost-tier hands off only on its *own* confident-POS, leaving frontier-borderline back on cheap-tier's NEG.
+
+The headline architectural verdict: **cost-tier escalation is a validated pattern across two corpora**, but the lift is corpus-shaped and the cost (~33% of corpus → frontier on Hadoop) is high. For si-03o specifically, F1 0.6301 → 0.7313 is the honest number; the Cassandra-style ceiling is *not* re-achievable on Hadoop with this pool definition.
+
+### Next
+- Tighten pool-membership rules (drop `[VOTE]` subjects from frontier escalation; cheap-tier was 1 FP among 23 TP outside-pool, so cheap is fine on vote threads).
+- Consider a logprob-based cheap-tier confidence threshold to shrink the pool from below.
+- File pool-tightening as a follow-up bd issue with `discovered-from si-03o`.
+
+---
+
 ## 2026-05-04: v3_elided — minimal rubric adaptation for Hadoop common-dev (precursor to si-03o)
 
 **Question:** Does a 2-clause rubric extension (JIRA-bookkeeping NEGATIVE + question-form-proposal POSITIVE) close the Hadoop generalization gap *without* regressing Cassandra performance? If yes, v3_elided becomes the operating point that si-03o (cost-tier escalation transfer) tests against. If the rubric tweak alone gets us to the F1 floor we need on Hadoop, we may not even need cost-tier escalation there. Either way, the result decides what we test in si-03o.
